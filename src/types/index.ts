@@ -1,3 +1,11 @@
+export interface SegmentedWord {
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+  isInDictionary: boolean;
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -7,6 +15,7 @@ export interface Article {
   tags?: string[];
   source?: string;
   wordCount?: number;
+  segments?: SegmentedWord[]; // Pre-segmented words for tap-to-lookup
 }
 
 export interface ArticleFormData {
@@ -14,6 +23,13 @@ export interface ArticleFormData {
   content: string;
   tags?: string[];
   source?: string;
+}
+
+export interface ReadingProgress {
+  articleId: string;
+  charPosition: number; // Character index in content, rounded to nearest word boundary
+  totalChars: number;
+  lastReadAt: number;
 }
 
 export type RootStackParamList = {

@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Article, ArticleFormData } from '../types';
+import { Article, ArticleFormData, ReadingProgress, SegmentedWord } from '../types';
+import { segmentArticle } from './segmentation';
 
 const ARTICLES_KEY = '@articles';
+const READING_PROGRESS_KEY = '@reading_progress';
 
 export class StorageService {
   static async getAllArticles(): Promise<Article[]> {
@@ -29,6 +31,9 @@ export class StorageService {
       const articles = await this.getAllArticles();
       const now = Date.now();
       
+      // Segment the content for tap-to-lookup
+      const segments = await segmentArticle(formData.content);
+      
       if (articleId) {
         const index = articles.findIndex(a => a.id === articleId);
         if (index !== -1) {
@@ -37,6 +42,7 @@ export class StorageService {
             ...formData,
             updatedAt: now,
             wordCount: this.countChineseWords(formData.content),
+            segments,
           };
           await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
           return articles[index];
@@ -49,6 +55,7 @@ export class StorageService {
         createdAt: now,
         updatedAt: now,
         wordCount: this.countChineseWords(formData.content),
+        segments,
       };
 
       articles.unshift(newArticle);
@@ -65,6 +72,9 @@ export class StorageService {
       const articles = await this.getAllArticles();
       const filtered = articles.filter(article => article.id !== id);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(filtered));
+      
+      // Also delete reading progress for this article
+      await this.deleteReadingProgress(id);
     } catch (error) {
       console.error('Error deleting article:', error);
       throw error;
@@ -93,5 +103,51 @@ export class StorageService {
   private static countChineseWords(text: string): number {
     const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
     return chineseChars ? chineseChars.length : 0;
+  }
+
+  // Reading Progress Methods
+  static async getReadingProgress(articleId: string): Promise<ReadingProgress | null> {
+    try {
+      const key = `${READING_PROGRESS_KEY}:${articleId}`;
+      const jsonValue = await AsyncStorage.getItem(key);
+      return jsonValue != null ? JSON.parse(jsonValue) : null;
+    } catch (error) {
+      console.error('Error loading reading progress:', error);
+      return null;
+    }
+  }
+
+  static async saveReadingProgress(progress: ReadingProgress): Promise<void> {
+    try {
+      const key = `${READING_PROGRESS_KEY}:${progress.articleId}`;
+      await AsyncStorage.setItem(key, JSON.stringify(progress));
+    } catch (error) {
+      console.error('Error saving reading progress:', error);
+      throw error;
+    }
+  }
+
+  static async deleteReadingProgress(articleId: string): Promise<void> {
+    try {
+      const key = `${READING_PROGRESS_KEY}:${articleId}`;
+      await AsyncStorage.removeItem(key);
+    } catch (error) {
+      console.error('Error deleting reading progress:', error);
+      throw error;
+    }
+  }
+
+  static async getAllReadingProgress(): Promise<ReadingProgress[]> {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const progressKeys = keys.filter(key => key.startsWith(READING_PROGRESS_KEY));
+      const values = await AsyncStorage.multiGet(progressKeys);
+      return values
+        .filter(([_, value]) => value !== null)
+        .map(([_, value]) => JSON.parse(value!));
+    } catch (error) {
+      console.error('Error loading all reading progress:', error);
+      return [];
+    }
   }
 }
