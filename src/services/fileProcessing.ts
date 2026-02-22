@@ -1,6 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import { extractText } from 'expo-pdf-text-extract';
+import { extractChineseContent } from '../utils/textProcessing';
 
 export interface FileProcessingResult {
   success: boolean;
@@ -8,25 +10,6 @@ export interface FileProcessingResult {
   title?: string;
   error?: string;
   source?: string;
-}
-
-// Helper: base64 decode to binary string (React Native compatible, no Buffer needed)
-function base64ToBinaryString(base64: string): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let result = '';
-  let i = 0;
-  const cleaned = base64.replace(/[^A-Za-z0-9+/]/g, '');
-  while (i < cleaned.length) {
-    const a = chars.indexOf(cleaned[i++]);
-    const b = chars.indexOf(cleaned[i++]);
-    const c = chars.indexOf(cleaned[i++]);
-    const d = chars.indexOf(cleaned[i++]);
-    const triplet = (a << 18) | (b << 12) | (c << 6) | d;
-    result += String.fromCharCode((triplet >> 16) & 0xff);
-    if (c !== 64) result += String.fromCharCode((triplet >> 8) & 0xff);
-    if (d !== 64) result += String.fromCharCode(triplet & 0xff);
-  }
-  return result;
 }
 
 export class FileProcessingService {
@@ -158,8 +141,8 @@ export class FileProcessingService {
         }
       }
 
-      // Clean up the text
-      text = this.cleanText(text);
+      // Extract Chinese content while preserving structure and punctuation
+      text = extractChineseContent(text);
 
       // Generate title from filename or first line
       const title = this.generateTitle(fileName, text);
@@ -190,54 +173,14 @@ export class FileProcessingService {
 
   private static async extractFromPDF(uri: string): Promise<string> {
     try {
-      const base64Content = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Decode base64 to binary string (React Native compatible)
-      const decoded = base64ToBinaryString(base64Content);
-
-      // Extract text from PDF content streams
-      const textMatches = decoded.match(/BT\s*[\s\S]*?ET/g);
+      // Use expo-pdf-text-extract for proper PDF text extraction
+      const text = await extractText(uri);
       
-      if (textMatches) {
-        const extractedTexts: string[] = [];
-        
-        for (const match of textMatches) {
-          const textContent = match
-            .replace(/BT\s*/g, '')
-            .replace(/\s*ET/g, '')
-            .replace(/\[\s*\(/g, '(')
-            .replace(/\)\s*]/g, ')')
-            .replace(/\([^)]*\)/g, (m) => m.slice(1, -1))
-            .replace(/T[jJ]\s*/g, ' ')
-            .replace(/\/[A-Za-z]+\s*\d+\s*Tf/g, '')
-            .replace(/\d+\.?\d*\s*\d+\.?\d*\s*Td/g, '')
-            .replace(/\d+\.?\d*\s*\d+\.?\d*\s*Tm/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-          
-          if (textContent) {
-            extractedTexts.push(textContent);
-          }
-        }
-        
-        if (extractedTexts.length > 0) {
-          return extractedTexts.join('\n');
-        }
+      if (text && text.trim()) {
+        return text;
       }
 
-      // Fallback: try to extract readable text
-      const readableText = decoded
-        .replace(/[^\x20-\x7E\u4e00-\u9fa5\n\r\t]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      if (readableText.length > 100) {
-        return readableText;
-      }
-
-      throw new Error('Could not extract text from PDF. The PDF may be scanned or image-based.');
+      throw new Error('No text found in PDF. The PDF may be scanned or image-based.');
     } catch (error) {
       console.error('Error extracting PDF:', error);
       throw new Error('Failed to extract text from PDF');
@@ -263,14 +206,7 @@ export class FileProcessingService {
     );
   }
 
-  private static cleanText(text: string): string {
-    return text
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/[\t ]+/g, ' ')
-      .trim();
-  }
+
 
   static generateTitle(fileName: string, content: string): string {
     const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
@@ -279,9 +215,9 @@ export class FileProcessingService {
       return nameWithoutExt;
     }
 
-    const firstLine = content.split('\n')[0].trim();
-    if (firstLine && firstLine.length < 100) {
-      return firstLine.substring(0, 50);
+    // Try to get first 50 Chinese characters for title
+    if (content && content.length > 0) {
+      return content.substring(0, Math.min(50, content.length));
     }
 
     return 'Imported Article';
