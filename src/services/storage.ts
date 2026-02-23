@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Article, ArticleFormData, ReadingProgress, SegmentedWord } from '../types';
+import { Article, ArticleFormData, ReadingProgress } from '../types';
 import { segmentArticle } from './segmentation';
+import CharacterRecognitionService from './characterRecognition';
 import DebugService from './debug';
 
 const ARTICLES_KEY = '@articles';
@@ -73,6 +74,12 @@ export class StorageService {
           };
           await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
           DebugService.log('STORAGE', 'Article updated successfully', { articleId, segmentsCount: segments.length });
+
+          // Compute and save article meta
+          const chineseWords = segments.filter(s => s.type === 'chinese').map(s => s.text);
+          CharacterRecognitionService.saveArticleMeta(articleId, formData.content, chineseWords)
+            .catch(err => console.warn('[storage] Failed to save article meta:', err));
+
           return articles[index];
         }
       }
@@ -89,6 +96,12 @@ export class StorageService {
       articles.unshift(newArticle);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
       DebugService.log('STORAGE', 'New article saved successfully', { articleId: newArticle.id, segmentsCount: segments.length });
+
+      // Compute and save article meta
+      const chineseWords = segments.filter(s => s.type === 'chinese').map(s => s.text);
+      CharacterRecognitionService.saveArticleMeta(newArticle.id, formData.content, chineseWords)
+        .catch(err => console.warn('[storage] Failed to save article meta:', err));
+
       return newArticle;
     } catch (error) {
       DebugService.logError('STORAGE', 'Error saving article', error);
@@ -102,8 +115,10 @@ export class StorageService {
       const filtered = articles.filter(article => article.id !== id);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(filtered));
       
-      // Also delete reading progress for this article
+      // Also delete reading progress and article meta for this article
       await this.deleteReadingProgress(id);
+      CharacterRecognitionService.deleteArticleMeta(id)
+        .catch(err => console.warn('[storage] Failed to delete article meta:', err));
     } catch (error) {
       console.error('Error deleting article:', error);
       throw error;

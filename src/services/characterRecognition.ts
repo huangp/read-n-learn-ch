@@ -38,6 +38,21 @@ export interface ReadingSession {
   familiarityIncremented: boolean;
 }
 
+export interface ArticleMeta {
+  articleId: string;
+  totalChars: number;
+  uniqueChars: number;
+  unknownChars: number;
+  hsk1Count: number;
+  hsk2Count: number;
+  hsk3Count: number;
+  hsk4Count: number;
+  hsk5Count: number;
+  hsk6Count: number;
+  nonHskCount: number;
+  updatedAt: number;
+}
+
 class CharacterRecognitionService {
   private db: SQLite.SQLiteDatabase | null = null;
 
@@ -129,6 +144,21 @@ class CharacterRecognitionService {
       CREATE INDEX IF NOT EXISTS idx_reading_sessions_article ON reading_sessions(article_id);
       CREATE INDEX IF NOT EXISTS idx_exposure_log_character ON character_exposure_log(character);
       CREATE INDEX IF NOT EXISTS idx_lookup_log_word ON word_lookup_log(word);
+
+      CREATE TABLE IF NOT EXISTS article_meta (
+        article_id TEXT PRIMARY KEY,
+        total_chars INTEGER DEFAULT 0,
+        unique_chars INTEGER DEFAULT 0,
+        unknown_chars INTEGER DEFAULT 0,
+        hsk1_count INTEGER DEFAULT 0,
+        hsk2_count INTEGER DEFAULT 0,
+        hsk3_count INTEGER DEFAULT 0,
+        hsk4_count INTEGER DEFAULT 0,
+        hsk5_count INTEGER DEFAULT 0,
+        hsk6_count INTEGER DEFAULT 0,
+        non_hsk_count INTEGER DEFAULT 0,
+        updated_at INTEGER
+      );
     `);
   }
 
@@ -494,6 +524,185 @@ class CharacterRecognitionService {
     }));
   }
 
+  // ---- Article Meta ----
+
+  /**
+   * Compute and store article metadata: total/unique/unknown chars, HSK distribution.
+   * Call this when an article is saved or opened.
+   *
+   * @param articleId  The article ID
+   * @param content    The article's raw text content
+   * @param words      Segmented Chinese words (from article.segments)
+   */
+  async saveArticleMeta(
+    articleId: string,
+    content: string,
+    words: string[]
+  ): Promise<ArticleMeta> {
+    const now = Date.now();
+
+    // Total and unique Chinese characters
+    const allChars = content.match(/[\u4e00-\u9fa5]/g) || [];
+    const distinctChars = [...new Set(allChars)];
+    const totalChars = allChars.length;
+    const uniqueChars = distinctChars.length;
+
+    // Unknown characters
+    let unknownChars = 0;
+    if (this.db && distinctChars.length > 0) {
+      const knownMap = await this.getKnownStatusBatch(distinctChars);
+      for (const c of distinctChars) {
+        if (!knownMap.get(c)) unknownChars++;
+      }
+    } else {
+      unknownChars = uniqueChars;
+    }
+
+    // HSK level distribution from segmented words
+    // Look up each unique word in the dictionary SQLite DB
+    const uniqueWords = [...new Set(words)];
+    const hskCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, none: 0 };
+
+    // Use the dictionary DB for HSK levels
+    try {
+      const { searchDictionarySync } = require('./dictionaryLoader');
+      for (const w of uniqueWords) {
+        const entry = searchDictionarySync(w);
+        if (entry?.hskLevel && entry.hskLevel >= 1 && entry.hskLevel <= 6) {
+          hskCounts[entry.hskLevel as 1 | 2 | 3 | 4 | 5 | 6]++;
+        } else {
+          hskCounts.none++;
+        }
+      }
+    } catch (err) {
+      console.warn('[article_meta] Could not compute HSK distribution:', err);
+      hskCounts.none = uniqueWords.length;
+    }
+
+    const meta: ArticleMeta = {
+      articleId,
+      totalChars,
+      uniqueChars,
+      unknownChars,
+      hsk1Count: hskCounts[1],
+      hsk2Count: hskCounts[2],
+      hsk3Count: hskCounts[3],
+      hsk4Count: hskCounts[4],
+      hsk5Count: hskCounts[5],
+      hsk6Count: hskCounts[6],
+      nonHskCount: hskCounts.none,
+      updatedAt: now,
+    };
+
+    if (this.db) {
+      await this.db.runAsync(
+        `INSERT OR REPLACE INTO article_meta
+          (article_id, total_chars, unique_chars, unknown_chars,
+           hsk1_count, hsk2_count, hsk3_count, hsk4_count, hsk5_count, hsk6_count,
+           non_hsk_count, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          articleId, totalChars, uniqueChars, unknownChars,
+          meta.hsk1Count, meta.hsk2Count, meta.hsk3Count,
+          meta.hsk4Count, meta.hsk5Count, meta.hsk6Count,
+          meta.nonHskCount, now,
+        ]
+      );
+    }
+
+    return meta;
+  }
+
+  /**
+   * Get stored article metadata. Returns null if not computed yet.
+   */
+  async getArticleMeta(articleId: string): Promise<ArticleMeta | null> {
+    if (!this.db) return null;
+
+    const row = await this.db.getFirstAsync<{
+      article_id: string;
+      total_chars: number;
+      unique_chars: number;
+      unknown_chars: number;
+      hsk1_count: number;
+      hsk2_count: number;
+      hsk3_count: number;
+      hsk4_count: number;
+      hsk5_count: number;
+      hsk6_count: number;
+      non_hsk_count: number;
+      updated_at: number;
+    }>('SELECT * FROM article_meta WHERE article_id = ?', [articleId]);
+
+    if (!row) return null;
+
+    return {
+      articleId: row.article_id,
+      totalChars: row.total_chars,
+      uniqueChars: row.unique_chars,
+      unknownChars: row.unknown_chars,
+      hsk1Count: row.hsk1_count,
+      hsk2Count: row.hsk2_count,
+      hsk3Count: row.hsk3_count,
+      hsk4Count: row.hsk4_count,
+      hsk5Count: row.hsk5_count,
+      hsk6Count: row.hsk6_count,
+      nonHskCount: row.non_hsk_count,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  /**
+   * Get metadata for all articles. Used for sorting on the HomeScreen.
+   * Returns a Map<articleId, ArticleMeta>.
+   */
+  async getAllArticleMeta(): Promise<Map<string, ArticleMeta>> {
+    const result = new Map<string, ArticleMeta>();
+    if (!this.db) return result;
+
+    const rows = await this.db.getAllAsync<{
+      article_id: string;
+      total_chars: number;
+      unique_chars: number;
+      unknown_chars: number;
+      hsk1_count: number;
+      hsk2_count: number;
+      hsk3_count: number;
+      hsk4_count: number;
+      hsk5_count: number;
+      hsk6_count: number;
+      non_hsk_count: number;
+      updated_at: number;
+    }>('SELECT * FROM article_meta');
+
+    for (const row of rows) {
+      result.set(row.article_id, {
+        articleId: row.article_id,
+        totalChars: row.total_chars,
+        uniqueChars: row.unique_chars,
+        unknownChars: row.unknown_chars,
+        hsk1Count: row.hsk1_count,
+        hsk2Count: row.hsk2_count,
+        hsk3Count: row.hsk3_count,
+        hsk4Count: row.hsk4_count,
+        hsk5Count: row.hsk5_count,
+        hsk6Count: row.hsk6_count,
+        nonHskCount: row.non_hsk_count,
+        updatedAt: row.updated_at,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Delete article metadata when an article is deleted.
+   */
+  async deleteArticleMeta(articleId: string): Promise<void> {
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM article_meta WHERE article_id = ?', [articleId]);
+  }
+
   async resetAllStats(): Promise<void> {
     if (!this.db) return;
 
@@ -504,6 +713,7 @@ class CharacterRecognitionService {
       DELETE FROM reading_sessions;
       DELETE FROM word_stats;
       DELETE FROM character_stats;
+      DELETE FROM article_meta;
     `);
   }
 

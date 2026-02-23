@@ -13,6 +13,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Article, RootStackParamList } from '../types';
 import { StorageService } from '../services/storage';
+import CharacterRecognitionService, { ArticleMeta } from '../services/characterRecognition';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -22,6 +23,7 @@ export default function HomeScreen() {
   const isTablet = width >= 768;
 
   const [articles, setArticles] = useState<Article[]>([]);
+  const [metaMap, setMetaMap] = useState<Map<string, ArticleMeta>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,8 @@ export default function HomeScreen() {
     try {
       const data = await StorageService.getAllArticles();
       setArticles(data);
+      const meta = await CharacterRecognitionService.getAllArticleMeta();
+      setMetaMap(meta);
     } catch (error) {
       console.error('Error loading articles:', error);
     } finally {
@@ -77,27 +81,67 @@ export default function HomeScreen() {
     }, [])
   );
 
-  const renderArticle = ({ item }: { item: Article }) => (
-    <TouchableOpacity
-      style={[styles.articleCard, isTablet && styles.articleCardTablet]}
-      onPress={() => navigation.navigate('ArticleDetail', { articleId: item.id })}
-    >
-      <Text style={styles.articleTitle} numberOfLines={2}>
-        {item.title || 'Untitled'}
-      </Text>
-      <Text style={styles.articlePreview} numberOfLines={2}>
-        {item.content.substring(0, 100)}...
-      </Text>
-      <View style={styles.articleMeta}>
-        <Text style={styles.metaText}>
-          {item.wordCount} characters
+  const renderArticle = ({ item }: { item: Article }) => {
+    const meta = metaMap.get(item.id);
+
+    // Determine dominant HSK level
+    let hskLabel = '';
+    if (meta) {
+      const levels = [
+        { level: 1, count: meta.hsk1Count },
+        { level: 2, count: meta.hsk2Count },
+        { level: 3, count: meta.hsk3Count },
+        { level: 4, count: meta.hsk4Count },
+        { level: 5, count: meta.hsk5Count },
+        { level: 6, count: meta.hsk6Count },
+      ];
+      const dominant = levels.reduce((a, b) => (b.count > a.count ? b : a), levels[0]);
+      if (dominant.count > 0) {
+        hskLabel = `HSK${dominant.level}`;
+      }
+    }
+
+    return (
+      <TouchableOpacity
+        style={[styles.articleCard, isTablet && styles.articleCardTablet]}
+        onPress={() => navigation.navigate('ArticleDetail', { articleId: item.id })}
+      >
+        <Text style={styles.articleTitle} numberOfLines={2}>
+          {item.title || 'Untitled'}
         </Text>
-        <Text style={styles.metaText}>
-          {new Date(item.updatedAt).toLocaleDateString()}
+        <Text style={styles.articlePreview} numberOfLines={2}>
+          {item.content.substring(0, 100)}...
         </Text>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.articleMeta}>
+          <Text style={styles.metaText}>
+            {item.wordCount} chars
+          </Text>
+          {meta && (
+            <>
+              <Text style={styles.metaDot}> • </Text>
+              <Text style={styles.metaText}>
+                {meta.uniqueChars} unique
+              </Text>
+              {meta.unknownChars > 0 && (
+                <>
+                  <Text style={styles.metaDot}> • </Text>
+                  <Text style={styles.metaTextHighlight}>
+                    {meta.unknownChars} new
+                  </Text>
+                </>
+              )}
+            </>
+          )}
+          {hskLabel ? (
+            <>
+              <Text style={styles.metaDot}> • </Text>
+              <Text style={styles.metaTextHsk}>{hskLabel}</Text>
+            </>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const numColumns = isTablet ? 2 : 1;
 
@@ -193,11 +237,26 @@ const styles = StyleSheet.create({
   },
   articleMeta: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    alignItems: 'center',
   },
   metaText: {
     fontSize: 12,
     color: '#999',
+  },
+  metaDot: {
+    fontSize: 12,
+    color: '#ccc',
+  },
+  metaTextHighlight: {
+    fontSize: 12,
+    color: '#FF9500',
+    fontWeight: '600',
+  },
+  metaTextHsk: {
+    fontSize: 11,
+    color: '#007AFF',
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',

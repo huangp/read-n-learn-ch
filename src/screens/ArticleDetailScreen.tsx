@@ -59,6 +59,10 @@ export default function ArticleDetailScreen() {
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
   const [hasCompleted, setHasCompleted] = useState(false);
 
+  // Article character stats
+  const [distinctCharCount, setDistinctCharCount] = useState(0);
+  const [unknownCharCount, setUnknownCharCount] = useState(0);
+
   useEffect(() => {
     loadArticle();
     
@@ -114,6 +118,14 @@ export default function ArticleDetailScreen() {
           .map(s => s.text) || [];
         
         await CharacterRecognitionService.trackDisplayedContent(sessionId, allChars, allWords, articleId);
+
+        // Load article meta from DB (or compute and save if not yet computed)
+        let meta = await CharacterRecognitionService.getArticleMeta(articleId);
+        if (!meta) {
+          meta = await CharacterRecognitionService.saveArticleMeta(articleId, data.content, allWords);
+        }
+        setDistinctCharCount(meta.uniqueChars);
+        setUnknownCharCount(meta.unknownChars);
 
         // Set up navigation header with menu
         navigation.setOptions({
@@ -196,6 +208,16 @@ export default function ArticleDetailScreen() {
   const handleCompleteReading = async () => {
     if (currentSessionId) {
       await CharacterRecognitionService.completeReadingSession(currentSessionId);
+
+      // Refresh article meta (unknown count may have changed after familiarity update)
+      if (article) {
+        const allWords = article.segments
+          ?.filter(s => s.type === 'chinese')
+          .map(s => s.text) || [];
+        CharacterRecognitionService.saveArticleMeta(articleId, article.content, allWords)
+          .catch(err => console.warn('[article] Failed to refresh article meta:', err));
+      }
+
       setHasCompleted(true);
       navigation.goBack();
     }
@@ -334,10 +356,18 @@ export default function ArticleDetailScreen() {
           <Text style={styles.metaText}>
             {article.wordCount} characters
           </Text>
-          <Text style={styles.metaText}> • </Text>
-          <Text style={styles.metaText}>
-            {new Date(article.updatedAt).toLocaleDateString()}
-          </Text>
+          {distinctCharCount > 0 && (
+            <>
+              <Text style={styles.metaText}> • </Text>
+              <Text style={styles.metaText}>
+                {distinctCharCount} unique
+              </Text>
+              <Text style={styles.metaText}> • </Text>
+              <Text style={[styles.metaText, unknownCharCount > 0 && styles.metaTextHighlight]}>
+                {unknownCharCount} unknown
+              </Text>
+            </>
+          )}
           {needsPagination && (
             <>
               <Text style={styles.metaText}> • </Text>
@@ -456,6 +486,10 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 14,
     color: '#666',
+  },
+  metaTextHighlight: {
+    color: '#FF9500',
+    fontWeight: '600',
   },
   source: {
     fontSize: 14,
