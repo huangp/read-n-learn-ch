@@ -1,147 +1,281 @@
 /**
- * Dictionary loader
+ * dictionaryLoader.ts — SQLite-backed dictionary with LRU cache
  *
- * Loads the pre-built CC-CEDICT JSON files produced by
- *   node scripts/build-dictionary.js
+ * Instead of holding 120k+ entries in a JS Map, we store them in SQLite
+ * and only cache recently-accessed entries in memory.
  *
- * Two files:
- *   assets/dict/cedict-core.json  – HSK 1-6 (~5k entries) – loaded eagerly
- *   assets/dict/cedict-full.json  – everything else (~115k) – loaded lazily
+ * On first launch the DB is populated from the bundled JSON files.
+ * Subsequent launches just open the existing DB (fast).
  *
- * Each entry: { s, p, d, h? }
- *   s = simplified, p = pinyin (tone marks),
- *   d = definitions[], h = HSK level (1-6, only in core)
+ * Public API (unchanged from the old in-memory version):
+ *   - loadCoreDictionary()      — called from App.tsx at startup
+ *   - loadFullDictionary()      — called from App.tsx at startup
+ *   - searchDictionary(word)    — async lookup
+ *   - searchDictionarySync(word) — sync lookup (uses LRU cache + sync SQLite)
  */
 
+import * as SQLite from 'expo-sqlite';
 import { DictionaryEntry, ExampleSentence } from '../data/dictionary';
 
-// ---------- Types for raw JSON ---------
+// ---------- Raw JSON entry shape ----------
 
 interface RawEntry {
-  s: string;      // simplified
-  p: string;      // pinyin (tone-marked)
-  d: string[];    // definitions
-  h?: number;     // HSK level
+  s: string;     // simplified
+  p: string;     // pinyin (tone-marked)
+  d: string[];   // definitions
+  h?: number;    // HSK level
 }
 
-// ---------- In-memory index -------------
+// ---------- LRU Cache ----------
 
-let indexBySimplified: Map<string, DictionaryEntry> | null = null;
+class LRUCache<K, V> {
+  private map = new Map<K, V>();
+  private readonly maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    const val = this.map.get(key);
+    if (val !== undefined) {
+      // Move to end (most recent)
+      this.map.delete(key);
+      this.map.set(key, val);
+    }
+    return val;
+  }
+
+  set(key: K, value: V): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    } else if (this.map.size >= this.maxSize) {
+      // Evict oldest (first entry)
+      const first = this.map.keys().next().value;
+      if (first !== undefined) this.map.delete(first);
+    }
+    this.map.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.map.has(key);
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+}
+
+// ---------- State ----------
+
+const DB_NAME = 'dictionary.db';
+const DB_VERSION = 2; // Bump this to force a rebuild
+const CACHE_SIZE = 2000;
+
+let db: SQLite.SQLiteDatabase | null = null;
+let dbSync: SQLite.SQLiteDatabase | null = null;
+let cache = new LRUCache<string, DictionaryEntry | null>(CACHE_SIZE);
 
 let coreLoaded = false;
 let fullLoaded = false;
-
-// ---------- Convert raw → DictionaryEntry ----------
-
 let idCounter = 0;
 
-function toEntry(raw: RawEntry): DictionaryEntry {
+// ---------- Helpers ----------
+
+function rowToEntry(row: {
+  simplified: string;
+  pinyin: string;
+  definitions: string;
+  hsk_level: number | null;
+}): DictionaryEntry {
   idCounter++;
   return {
     id: String(idCounter),
-    simplified: raw.s,
-    pinyin: raw.p,
-    definitions: raw.d,
+    simplified: row.simplified,
+    pinyin: row.pinyin,
+    definitions: JSON.parse(row.definitions),
     pos: '',
-    hskLevel: raw.h,
+    hskLevel: row.hsk_level ?? undefined,
     examples: [] as ExampleSentence[],
   };
 }
 
-// ---------- Loading ----------
+// ---------- DB initialisation ----------
 
-function ensureMaps() {
-  if (!indexBySimplified) {
-    indexBySimplified = new Map();
-  }
+async function openDB(): Promise<void> {
+  if (db) return;
+
+  db = await SQLite.openDatabaseAsync(DB_NAME);
+  // Also open a sync handle for searchDictionarySync
+  dbSync = SQLite.openDatabaseSync(DB_NAME);
+
+  // Create table if needed
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS entries (
+      simplified TEXT PRIMARY KEY,
+      pinyin TEXT NOT NULL,
+      definitions TEXT NOT NULL,
+      hsk_level INTEGER
+    );
+  `);
 }
 
-function addEntries(rawList: RawEntry[]) {
-  ensureMaps();
-  for (const raw of rawList) {
-    const entry = toEntry(raw);
-    if (!indexBySimplified!.has(entry.simplified)) {
-      indexBySimplified!.set(entry.simplified, entry);
+async function getDBVersion(): Promise<number> {
+  if (!db) return 0;
+  const row = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM meta WHERE key = 'version'"
+  );
+  return row ? parseInt(row.value, 10) : 0;
+}
+
+async function setDBVersion(v: number): Promise<void> {
+  if (!db) return;
+  await db.runAsync(
+    "INSERT OR REPLACE INTO meta (key, value) VALUES ('version', ?)",
+    [String(v)]
+  );
+}
+
+async function needsRebuild(): Promise<boolean> {
+  const v = await getDBVersion();
+  return v < DB_VERSION;
+}
+
+async function insertBatch(entries: RawEntry[]): Promise<void> {
+  if (!db || entries.length === 0) return;
+
+  // Use batched inserts for speed
+  const BATCH = 500;
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const chunk = entries.slice(i, i + BATCH);
+    const placeholders = chunk.map(() => '(?,?,?,?)').join(',');
+    const params: any[] = [];
+    for (const e of chunk) {
+      params.push(e.s, e.p, JSON.stringify(e.d), e.h ?? null);
     }
+    await db.runAsync(
+      `INSERT OR IGNORE INTO entries (simplified, pinyin, definitions, hsk_level) VALUES ${placeholders}`,
+      params
+    );
   }
 }
+
+// ---------- Public: load functions ----------
 
 /**
- * Load the core (HSK 1-6) dictionary. Fast – ~5k entries.
+ * Load the core (HSK 1-6) dictionary into SQLite. ~5k entries.
  * Safe to call multiple times; only loads once.
  */
 export async function loadCoreDictionary(): Promise<void> {
   if (coreLoaded) return;
-  try {
-    // Metro resolves require() at build time for JSON
+
+  await openDB();
+
+  const rebuild = await needsRebuild();
+  if (rebuild) {
+    console.log('[dict] Building SQLite dictionary...');
+    // Clear old data
+    await db!.execAsync('DELETE FROM entries');
+
     const data: RawEntry[] = require('../../assets/dict/cedict-core.json');
-    addEntries(data);
-    coreLoaded = true;
-    console.log(`[dict] Core loaded: ${data.length} entries`);
-  } catch (e) {
-    console.warn('[dict] Could not load cedict-core.json — run: node scripts/build-dictionary.js');
+    await insertBatch(data);
+    console.log(`[dict] Core inserted: ${data.length} entries`);
+  } else {
+    console.log('[dict] SQLite dictionary already up to date (core)');
   }
+
+  coreLoaded = true;
 }
 
 /**
- * Load the full dictionary (everything outside HSK). ~115k entries.
- * Loaded lazily on first lookup miss in core.
+ * Load the full dictionary into SQLite. ~115k entries.
+ * Safe to call multiple times; only loads once.
  */
 export async function loadFullDictionary(): Promise<void> {
   if (fullLoaded) return;
-  try {
+
+  await openDB();
+
+  const rebuild = await needsRebuild();
+  if (rebuild) {
     const data: RawEntry[] = require('../../assets/dict/cedict-full.json');
-    addEntries(data);
-    fullLoaded = true;
-    console.log(`[dict] Full loaded: ${data.length} entries`);
-  } catch (e) {
-    console.warn('[dict] Could not load cedict-full.json — run: node scripts/build-dictionary.js');
+    await insertBatch(data);
+    console.log(`[dict] Full inserted: ${data.length} entries`);
+
+    // Create index after bulk insert (faster)
+    await db!.execAsync(
+      'CREATE INDEX IF NOT EXISTS idx_entries_hsk ON entries(hsk_level)'
+    );
+
+    // Mark version complete
+    await setDBVersion(DB_VERSION);
+    console.log('[dict] SQLite dictionary build complete');
+  } else {
+    console.log('[dict] SQLite dictionary already up to date (full)');
   }
+
+  fullLoaded = true;
 }
 
-// ---------- Lookup API ----------
+// ---------- Public: lookup API ----------
 
 /**
- * Search for a word. Loads core on first call.
- * If not found in core, lazily loads full dictionary and retries.
+ * Async search. Opens DB on first call if needed.
  */
 export async function searchDictionary(word: string): Promise<DictionaryEntry | null> {
-  if (!coreLoaded) await loadCoreDictionary();
+  // Check cache first
+  if (cache.has(word)) return cache.get(word) ?? null;
 
-  const hit = indexBySimplified?.get(word);
-  if (hit) return hit;
+  if (!db) await openDB();
 
-  if (!fullLoaded) {
-    await loadFullDictionary();
-    return indexBySimplified?.get(word) ?? null;
+  const row = await db!.getFirstAsync<{
+    simplified: string;
+    pinyin: string;
+    definitions: string;
+    hsk_level: number | null;
+  }>('SELECT simplified, pinyin, definitions, hsk_level FROM entries WHERE simplified = ?', [word]);
+
+  if (row) {
+    const entry = rowToEntry(row);
+    cache.set(word, entry);
+    return entry;
   }
 
+  cache.set(word, null);
   return null;
 }
 
 /**
- * Synchronous lookup — only searches what's already loaded.
+ * Synchronous lookup using the sync SQLite handle + LRU cache.
+ * The cache prevents repeated sync DB calls for the same word.
  */
 export function searchDictionarySync(word: string): DictionaryEntry | null {
-  return indexBySimplified?.get(word) ?? null;
-}
+  // Check cache first
+  if (cache.has(word)) return cache.get(word) ?? null;
 
-// ---------- Legacy compat (used by old code) ----------
-
-export async function searchHSK(word: string): Promise<DictionaryEntry | null> {
-  return searchDictionary(word);
-}
-
-export async function loadAllHSK(): Promise<DictionaryEntry[]> {
-  await loadCoreDictionary();
-  return Array.from(indexBySimplified?.values() ?? []).filter(e => e.hskLevel);
-}
-
-export function getHSKWordCount(level: number): number {
-  if (!indexBySimplified) return 0;
-  let count = 0;
-  for (const e of indexBySimplified.values()) {
-    if (e.hskLevel === level) count++;
+  if (!dbSync) {
+    // DB not initialised yet — shouldn't happen if App.tsx calls loadCoreDictionary
+    console.warn('[dict] searchDictionarySync called before DB init');
+    return null;
   }
-  return count;
+
+  const row = dbSync.getFirstSync<{
+    simplified: string;
+    pinyin: string;
+    definitions: string;
+    hsk_level: number | null;
+  }>('SELECT simplified, pinyin, definitions, hsk_level FROM entries WHERE simplified = ?', [word]);
+
+  if (row) {
+    const entry = rowToEntry(row);
+    cache.set(word, entry);
+    return entry;
+  }
+
+  cache.set(word, null);
+  return null;
 }
