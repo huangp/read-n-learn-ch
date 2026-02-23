@@ -8,6 +8,7 @@ import {
   Alert,
   useWindowDimensions,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -221,19 +222,21 @@ export default function ArticleDetailScreen() {
 
     return (
       <View style={[styles.pageContainer, { width }]}>
-        <View style={styles.pageContent}>
-          {pageSegments.length > 0 ? (
-            <SegmentedText
-              segments={pageSegments}
-              content={item}
-              onWordPress={handleWordPress}
-              fontSize={FONT_SIZE}
-              lineHeight={LINE_HEIGHT}
-            />
-          ) : (
-            <Text style={styles.contentText}>{item}</Text>
-          )}
-        </View>
+        <ScrollView style={styles.pageScrollView} contentContainerStyle={styles.pageScrollContent}>
+          <View style={styles.pageContent}>
+            {pageSegments.length > 0 ? (
+              <SegmentedText
+                segments={pageSegments}
+                content={item}
+                onWordPress={handleWordPress}
+                fontSize={FONT_SIZE}
+                lineHeight={LINE_HEIGHT}
+              />
+            ) : (
+              <Text style={styles.contentText}>{item}</Text>
+            )}
+          </View>
+        </ScrollView>
       </View>
     );
   };
@@ -300,7 +303,7 @@ export default function ArticleDetailScreen() {
           })}
         />
       ) : (
-        <View style={styles.singlePageContainer}>
+        <ScrollView style={styles.singlePageContainer} contentContainerStyle={styles.singlePageContent}>
           <View style={styles.pageContent}>
             {article?.segments && article.segments.length > 0 ? (
               <SegmentedText
@@ -314,7 +317,7 @@ export default function ArticleDetailScreen() {
               <Text style={styles.contentText}>{article.content}</Text>
             )}
           </View>
-        </View>
+        </ScrollView>
       )}
 
       {/* Pagination Controls */}
@@ -397,12 +400,20 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  singlePageContent: {
+    paddingBottom: 20,
+  },
   pageContainer: {
     flex: 1,
     paddingHorizontal: 20,
   },
-  pageContent: {
+  pageScrollView: {
     flex: 1,
+  },
+  pageScrollContent: {
+    paddingBottom: 20,
+  },
+  pageContent: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 20,
