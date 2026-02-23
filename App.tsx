@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MenuProvider } from 'react-native-popup-menu';
 import AppNavigator from './src/navigation/AppNavigator';
 import { loadCoreDictionary, loadFullDictionary } from './src/services/dictionaryLoader';
 import CharacterRecognitionService from './src/services/characterRecognition';
@@ -20,8 +21,10 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AppNavigator />
-        <StatusBar style="auto" />
+        <MenuProvider>
+          <AppNavigator />
+          <StatusBar style="auto" />
+        </MenuProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

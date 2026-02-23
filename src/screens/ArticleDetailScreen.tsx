@@ -15,11 +15,15 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Article, RootStackParamList, ReadingProgress, SegmentedWord } from '../types';
 import { StorageService } from '../services/storage';
 import DebugService from '../services/debug';
+import CharacterRecognitionService from '../services/characterRecognition';
 import { paginateContent, PaginationResult, getPageForPosition, getPositionForPage } from '../utils/pagination';
 import { getSegmentsForPage } from '../services/segmentation';
 import PaginationControls from '../components/PaginationControls';
 import SegmentedText from '../components/SegmentedText';
 import WordLookupModal from '../components/WordLookupModal';
+import CompleteReadingButton from '../components/CompleteReadingButton';
+import ReadingStatsPanel from '../components/ReadingStatsPanel';
+import ArticleMenu from '../components/ArticleMenu';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -50,9 +54,20 @@ export default function ArticleDetailScreen() {
   // Word lookup state
   const [selectedWord, setSelectedWord] = useState<SegmentedWord | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  
+  // Character recognition state
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [hasCompleted, setHasCompleted] = useState(false);
 
   useEffect(() => {
     loadArticle();
+    
+    // Cleanup: cancel session if component unmounts without completing
+    return () => {
+      if (currentSessionId && !hasCompleted) {
+        CharacterRecognitionService.cancelReadingSession(currentSessionId);
+      }
+    };
   }, [articleId]);
 
   const loadArticle = async () => {
@@ -68,7 +83,6 @@ export default function ArticleDetailScreen() {
         });
         
         setArticle(data);
-        navigation.setOptions({ title: data.title || 'Article' });
         
         // Calculate pagination
         const paginationResult = paginateContent(
@@ -88,6 +102,29 @@ export default function ArticleDetailScreen() {
         setPages(paginationResult.pages);
         setTotalPages(paginationResult.totalPages);
         setNeedsPagination(paginationResult.needsPagination);
+        
+        // Initialize character recognition session
+        const sessionId = await CharacterRecognitionService.startReadingSession(articleId);
+        setCurrentSessionId(sessionId);
+        
+        // Extract all Chinese characters and words
+        const allChars = data.content.match(/[\u4e00-\u9fa5]/g) || [];
+        const allWords = data.segments
+          ?.filter(s => s.type === 'chinese')
+          .map(s => s.text) || [];
+        
+        await CharacterRecognitionService.trackDisplayedContent(sessionId, allChars, allWords, articleId);
+
+        // Set up navigation header with menu
+        navigation.setOptions({
+          title: data.title || 'Article',
+          headerRight: () => (
+            <ArticleMenu 
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ),
+        });
         
         // Load saved reading progress
         const savedProgress = await StorageService.getReadingProgress(articleId);
@@ -156,6 +193,14 @@ export default function ArticleDetailScreen() {
     );
   };
 
+  const handleCompleteReading = async () => {
+    if (currentSessionId) {
+      await CharacterRecognitionService.completeReadingSession(currentSessionId);
+      setHasCompleted(true);
+      navigation.goBack();
+    }
+  };
+
   const handlePreviousPage = () => {
     if (currentPage > 0) {
       const newPage = currentPage - 1;
@@ -189,16 +234,25 @@ export default function ArticleDetailScreen() {
     }
   }, [currentPage, totalPages, width, saveProgress]);
 
-  const handleWordPress = (word: SegmentedWord) => {
+  const handleWordPress = async (word: SegmentedWord) => {
     DebugService.log('ARTICLE_VIEW', 'Word pressed', { 
       word: word.text, 
       start: word.start, 
       end: word.end,
       isInDictionary: word.isInDictionary 
     });
+    
+    // Track word lookup for character recognition
+    if (currentSessionId) {
+      await CharacterRecognitionService.markWordAsLookedUp(currentSessionId, word.text);
+    }
+    
     setSelectedWord(word);
     setModalVisible(true);
   };
+
+  const isLastPage = currentPage === totalPages - 1;
+  const showCompleteButton = isLastPage && !hasCompleted;
 
   const renderPage = ({ item, index }: { item: string; index: number }) => {
     // Calculate page boundaries
@@ -220,6 +274,8 @@ export default function ArticleDetailScreen() {
       hasSegments: pageSegments.length > 0 
     });
 
+    const isLastPageItem = index === pages.length - 1;
+
     return (
       <View style={[styles.pageContainer, { width }]}>
         <ScrollView style={styles.pageScrollView} contentContainerStyle={styles.pageScrollContent}>
@@ -236,6 +292,18 @@ export default function ArticleDetailScreen() {
               <Text style={styles.contentText}>{item}</Text>
             )}
           </View>
+
+          {isLastPageItem && (
+            <View style={styles.bottomSection}>
+              <ReadingStatsPanel articleId={articleId} sessionId={currentSessionId} />
+              {showCompleteButton && (
+                <CompleteReadingButton
+                  onComplete={handleCompleteReading}
+                  disabled={false}
+                />
+              )}
+            </View>
+          )}
         </ScrollView>
       </View>
     );
@@ -285,40 +353,53 @@ export default function ArticleDetailScreen() {
       </View>
 
       {/* Content */}
-      {needsPagination ? (
-        <FlatList
-          ref={flatListRef}
-          data={pages}
-          renderItem={renderPage}
-          keyExtractor={(_, index) => `page-${index}`}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          getItemLayout={(_, index) => ({
-            length: width,
-            offset: width * index,
-            index,
-          })}
-        />
-      ) : (
-        <ScrollView style={styles.singlePageContainer} contentContainerStyle={styles.singlePageContent}>
-          <View style={styles.pageContent}>
-            {article?.segments && article.segments.length > 0 ? (
-              <SegmentedText
-                segments={article.segments}
-                content={article.content}
-                onWordPress={handleWordPress}
-                fontSize={FONT_SIZE}
-                lineHeight={LINE_HEIGHT}
-              />
-            ) : (
-              <Text style={styles.contentText}>{article.content}</Text>
-            )}
-          </View>
-        </ScrollView>
-      )}
+      <View style={styles.contentWrapper}>
+        {needsPagination ? (
+          <FlatList
+            ref={flatListRef}
+            data={pages}
+            renderItem={renderPage}
+            keyExtractor={(_, index) => `page-${index}`}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            getItemLayout={(_, index) => ({
+              length: width,
+              offset: width * index,
+              index,
+            })}
+          />
+        ) : (
+          <ScrollView style={styles.singlePageContainer} contentContainerStyle={styles.singlePageContent}>
+            <View style={styles.pageContent}>
+              {article?.segments && article.segments.length > 0 ? (
+                <SegmentedText
+                  segments={article.segments}
+                  content={article.content}
+                  onWordPress={handleWordPress}
+                  fontSize={FONT_SIZE}
+                  lineHeight={LINE_HEIGHT}
+                />
+              ) : (
+                <Text style={styles.contentText}>{article.content}</Text>
+              )}
+            </View>
+
+            {/* Stats & Complete Reading - inline below content */}
+            <View style={styles.bottomSection}>
+              <ReadingStatsPanel articleId={articleId} sessionId={currentSessionId} />
+              {showCompleteButton && (
+                <CompleteReadingButton
+                  onComplete={handleCompleteReading}
+                  disabled={false}
+                />
+              )}
+            </View>
+          </ScrollView>
+        )}
+      </View>
 
       {/* Pagination Controls */}
       {needsPagination && (
@@ -330,20 +411,6 @@ export default function ArticleDetailScreen() {
         />
       )}
 
-      {/* Action Bar */}
-      <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-          <Text style={styles.actionButtonText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={handleDelete}
-        >
-          <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
-            Delete
-          </Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Word Lookup Modal */}
       <WordLookupModal
@@ -396,6 +463,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontStyle: 'italic',
   },
+  contentWrapper: {
+    flex: 1,
+  },
   singlePageContainer: {
     flex: 1,
     paddingHorizontal: 20,
@@ -428,32 +498,8 @@ const styles = StyleSheet.create({
     lineHeight: LINE_HEIGHT,
     color: '#333',
   },
-  actionBar: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#FF3B30',
-  },
-  deleteButtonText: {
-    color: '#FF3B30',
+  bottomSection: {
+    marginTop: 16,
+    gap: 8,
   },
 });
