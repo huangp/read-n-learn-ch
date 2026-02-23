@@ -7,6 +7,9 @@ A cross-platform React Native app for storing and reading Chinese text articles,
 - 📚 Store Chinese text articles locally
 - 🔍 Search through your articles
 - ✏️ Create and edit articles
+- 📖 **Tap-to-lookup** — tap any word to see pinyin, definitions, HSK level, and character breakdown
+- 📕 **Offline dictionary** — 124k+ entries from CC-CEDICT, HSK 1-6 tagged, no internet needed
+- 🔤 **Context-aware word segmentation** — powered by segmentit (pure JS, runs locally)
 - 📷 Camera scan to capture text from images
 - 📄 Import documents (PDF, TXT)
 - 🖼️ Import images for text extraction
@@ -21,6 +24,9 @@ A cross-platform React Native app for storing and reading Chinese text articles,
 - **React**: 19.1.0
 - **Navigation**: React Navigation (Stack)
 - **Storage**: AsyncStorage (local)
+- **Dictionary**: CC-CEDICT (124k+ entries, offline)
+- **Word Segmentation**: segmentit (pure JS, context-aware)
+- **Pinyin**: pinyin (tone-marked conversion)
 - **Camera**: expo-camera
 - **File Handling**: expo-document-picker, expo-file-system, expo-image-picker
 
@@ -40,6 +46,9 @@ read-n-learn-ch/
 │   │   └── AppNavigator.tsx  # Stack navigation config
 │   ├── services/
 │   │   ├── storage.ts        # Article storage (AsyncStorage)
+│   │   ├── dictionary.ts     # Word lookup (pinyin, definitions, HSK level)
+│   │   ├── dictionaryLoader.ts # Loads CC-CEDICT JSON data
+│   │   ├── segmentation.ts   # Chinese word segmentation (segmentit)
 │   │   └── fileProcessing.ts # File import & text extraction
 │   ├── types/
 │   │   └── index.ts          # TypeScript type definitions
@@ -70,7 +79,10 @@ read-n-learn-ch/
 ```bash
 cd read-n-learn-ch
 npm install
+npm run build:dict   # Downloads CC-CEDICT and builds the offline dictionary (~124k entries)
 ```
+
+> The `build:dict` step downloads the [CC-CEDICT](https://cc-cedict.org/) Chinese-English dictionary, cross-references HSK 1-6 word lists, and generates two JSON files under `assets/dict/`. This only needs to be run once (or when you want to update the dictionary data).
 
 ### Full Clean Rebuild (first time or after dependency changes)
 

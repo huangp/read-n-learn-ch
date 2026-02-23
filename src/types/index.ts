@@ -3,6 +3,7 @@ export interface SegmentedWord {
   text: string;
   start: number;
   end: number;
+  type: 'chinese' | 'other';
   isInDictionary: boolean;
 }
 
@@ -27,8 +28,10 @@ export interface ArticleFormData {
 
 export interface ReadingProgress {
   articleId: string;
-  charPosition: number; // Character index in content, rounded to nearest word boundary
-  totalChars: number;
+  charPosition?: number; // Character index in content, rounded to nearest word boundary
+  totalChars?: number;
+  currentPage: number;
+  totalPages: number;
   lastReadAt: number;
 }
 
@@ -40,7 +43,3 @@ export type RootStackParamList = {
   Settings: undefined;
 };
 
-export type RootDrawerParamList = {
-  MainStack: undefined;
-  Settings: undefined;
-};

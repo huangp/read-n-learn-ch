@@ -44,7 +44,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '1',
     simplified: '银行',
-    traditional: '銀行',
     pinyin: 'yín háng',
     definitions: ['bank', 'banking house'],
     pos: 'noun',
@@ -58,7 +57,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '2',
     simplified: '北京',
-    traditional: '北京',
     pinyin: 'běi jīng',
     definitions: ['Beijing', 'Peking'],
     pos: 'proper noun',
@@ -71,7 +69,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '3',
     simplified: '学习',
-    traditional: '學習',
     pinyin: 'xué xí',
     definitions: ['to learn', 'to study'],
     pos: 'verb',
@@ -85,7 +82,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '4',
     simplified: '中国',
-    traditional: '中國',
     pinyin: 'zhōng guó',
     definitions: ['China'],
     pos: 'proper noun',
@@ -98,7 +94,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '5',
     simplified: '今天',
-    traditional: '今天',
     pinyin: 'jīn tiān',
     definitions: ['today'],
     pos: 'noun',
@@ -111,7 +106,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '6',
     simplified: '明天',
-    traditional: '明天',
     pinyin: 'míng tiān',
     definitions: ['tomorrow'],
     pos: 'noun',
@@ -124,7 +118,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '7',
     simplified: '昨天',
-    traditional: '昨天',
     pinyin: 'zuó tiān',
     definitions: ['yesterday'],
     pos: 'noun',
@@ -137,7 +130,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '8',
     simplified: '喜欢',
-    traditional: '喜歡',
     pinyin: 'xǐ huan',
     definitions: ['to like', 'to enjoy'],
     pos: 'verb',
@@ -150,7 +142,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '9',
     simplified: '朋友',
-    traditional: '朋友',
     pinyin: 'péng you',
     definitions: ['friend'],
     pos: 'noun',
@@ -163,7 +154,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '10',
     simplified: '工作',
-    traditional: '工作',
     pinyin: 'gōng zuò',
     definitions: ['work', 'job'],
     pos: 'noun/verb',
@@ -176,7 +166,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '11',
     simplified: '吃饭',
-    traditional: '吃飯',
     pinyin: 'chī fàn',
     definitions: ['to eat', 'to have a meal'],
     pos: 'verb',
@@ -189,7 +178,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '12',
     simplified: '说话',
-    traditional: '說話',
     pinyin: 'shuō huà',
     definitions: ['to speak', 'to talk'],
     pos: 'verb',
@@ -202,7 +190,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '13',
     simplified: '看书',
-    traditional: '看書',
     pinyin: 'kàn shū',
     definitions: ['to read', 'to read a book'],
     pos: 'verb',
@@ -215,7 +202,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '14',
     simplified: '写字',
-    traditional: '寫字',
     pinyin: 'xiě zì',
     definitions: ['to write characters'],
     pos: 'verb',
@@ -228,7 +214,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '15',
     simplified: '打电话',
-    traditional: '打電話',
     pinyin: 'dǎ diàn huà',
     definitions: ['to make a phone call'],
     pos: 'verb',
@@ -241,7 +226,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '16',
     simplified: '买东西',
-    traditional: '買東西',
     pinyin: 'mǎi dōng xi',
     definitions: ['to go shopping', 'to buy things'],
     pos: 'verb',
@@ -254,7 +238,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '17',
     simplified: '看电视',
-    traditional: '看電視',
     pinyin: 'kàn diàn shì',
     definitions: ['to watch TV'],
     pos: 'verb',
@@ -267,7 +250,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '18',
     simplified: '听音乐',
-    traditional: '聽音樂',
     pinyin: 'tīng yīn yuè',
     definitions: ['to listen to music'],
     pos: 'verb',
@@ -280,7 +262,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '19',
     simplified: '跑步',
-    traditional: '跑步',
     pinyin: 'pǎo bù',
     definitions: ['to run', 'jogging'],
     pos: 'verb/noun',
@@ -293,7 +274,6 @@ export const dictionaryData: DictionaryEntry[] = [
   {
     id: '20',
     simplified: '游泳',
-    traditional: '游泳',
     pinyin: 'yóu yǒng',
     definitions: ['to swim', 'swimming'],
     pos: 'verb/noun',
@@ -335,14 +315,13 @@ export const characterData: Record<string, { pinyin: string; literal: string; co
   '字': { pinyin: 'zì', literal: 'character', contextual: 'character / letter' },
   '打': { pinyin: 'dǎ', literal: 'hit', contextual: 'to make (a call) / to hit' },
   '电': { pinyin: 'diàn', literal: 'electric', contextual: 'electric / phone' },
-  '话': { pinyin: 'huà', literal: 'speech', contextual: 'speech / phone' },
   '买': { pinyin: 'mǎi', literal: 'buy', contextual: 'to buy' },
   '东': { pinyin: 'dōng', literal: 'east', contextual: 'east / thing' },
   '西': { pinyin: 'xī', literal: 'west', contextual: 'west / thing' },
   '视': { pinyin: 'shì', literal: 'vision', contextual: 'vision / television' },
   '听': { pinyin: 'tīng', literal: 'listen', contextual: 'to listen / hear' },
   '音': { pinyin: 'yīn', literal: 'sound', contextual: 'sound / music' },
-  '乐': { pinyin: 'yuè', literal: 'music', literal: 'music / happy' },
+  '乐': { pinyin: 'yuè', literal: 'music', contextual: 'music / happy' },
   '跑': { pinyin: 'pǎo', literal: 'run', contextual: 'to run' },
   '步': { pinyin: 'bù', literal: 'step', contextual: 'step / walk' },
   '游': { pinyin: 'yóu', literal: 'swim', contextual: 'to swim / travel' },

@@ -16,12 +16,12 @@ describe('segmentArticle', () => {
 
 describe('getSegmentsForPage', () => {
   const mockSegments: SegmentedWord[] = [
-    { id: '1', text: '我', start: 0, end: 1, isInDictionary: false },
-    { id: '2', text: '喜欢', start: 1, end: 3, isInDictionary: false },
-    { id: '3', text: '学习', start: 3, end: 5, isInDictionary: false },
-    { id: '4', text: '中文', start: 5, end: 7, isInDictionary: false },
-    { id: '5', text: '非常', start: 7, end: 9, isInDictionary: false },
-    { id: '6', text: '有趣', start: 9, end: 11, isInDictionary: false },
+    { id: '1', text: '我', start: 0, end: 1, type: 'chinese', isInDictionary: false },
+    { id: '2', text: '喜欢', start: 1, end: 3, type: 'chinese', isInDictionary: false },
+    { id: '3', text: '学习', start: 3, end: 5, type: 'chinese', isInDictionary: false },
+    { id: '4', text: '中文', start: 5, end: 7, type: 'chinese', isInDictionary: false },
+    { id: '5', text: '非常', start: 7, end: 9, type: 'chinese', isInDictionary: false },
+    { id: '6', text: '有趣', start: 9, end: 11, type: 'chinese', isInDictionary: false },
   ];
 
   it('should return segments within page range', () => {
@@ -64,7 +64,7 @@ describe('getSegmentsForPage', () => {
 
   it('should handle single segment', () => {
     const singleSegment: SegmentedWord[] = [
-      { id: '1', text: '学习', start: 0, end: 2, isInDictionary: false },
+      { id: '1', text: '学习', start: 0, end: 2, type: 'chinese', isInDictionary: false },
     ];
 
     const result = getSegmentsForPage(singleSegment, 0, 2);

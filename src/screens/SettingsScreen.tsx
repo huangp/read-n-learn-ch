@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,44 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  Switch,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootStackParamList } from '../types';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
+const DEBUG_MODE_KEY = '@debug_mode_enabled';
+
 export default function SettingsScreen() {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const [debugMode, setDebugMode] = useState(false);
+
+  useEffect(() => {
+    loadDebugMode();
+  }, []);
+
+  const loadDebugMode = async () => {
+    try {
+      const value = await AsyncStorage.getItem(DEBUG_MODE_KEY);
+      setDebugMode(value === 'true');
+    } catch (error) {
+      console.error('Error loading debug mode:', error);
+    }
+  };
+
+  const toggleDebugMode = async () => {
+    try {
+      const newValue = !debugMode;
+      await AsyncStorage.setItem(DEBUG_MODE_KEY, newValue.toString());
+      setDebugMode(newValue);
+      console.log(`Debug mode ${newValue ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Error saving debug mode:', error);
+    }
+  };
 
   const settingsItems = [
     {
@@ -57,6 +86,23 @@ export default function SettingsScreen() {
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <View style={[styles.section, { marginTop: 20 }]}>
+        <View style={styles.settingItem}>
+          <View>
+            <Text style={styles.itemTitle}>Debug Mode</Text>
+            <Text style={styles.itemDescription}>
+              Enable logging for troubleshooting
+            </Text>
+          </View>
+          <Switch
+            value={debugMode}
+            onValueChange={toggleDebugMode}
+            trackColor={{ false: '#767577', true: '#81b0ff' }}
+            thumbColor={debugMode ? '#007AFF' : '#f4f3f4'}
+          />
+        </View>
       </View>
 
       <View style={styles.footer}>

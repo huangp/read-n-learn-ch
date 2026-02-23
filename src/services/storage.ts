@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Article, ArticleFormData, ReadingProgress, SegmentedWord } from '../types';
 import { segmentArticle } from './segmentation';
+import DebugService from './debug';
 
 const ARTICLES_KEY = '@articles';
 const READING_PROGRESS_KEY = '@reading_progress';
@@ -19,7 +20,29 @@ export class StorageService {
   static async getArticleById(id: string): Promise<Article | null> {
     try {
       const articles = await this.getAllArticles();
-      return articles.find(article => article.id === id) || null;
+      const article = articles.find(a => a.id === id) || null;
+
+      // Auto re-segment if article has content with newlines but segments
+      // don't contain any newline tokens (stale segmentation)
+      if (article && article.content && /\n/.test(article.content)) {
+        const hasNewlineSegment = article.segments?.some(
+          (s) => s.text === '\n' || s.text === '\n\n'
+        );
+        if (!hasNewlineSegment) {
+          DebugService.log('STORAGE', 'Re-segmenting article (stale segments)', { id });
+          const segments = await segmentArticle(article.content);
+          article.segments = segments;
+          // Persist the updated segments in background
+          const allArticles = await this.getAllArticles();
+          const idx = allArticles.findIndex(a => a.id === id);
+          if (idx !== -1) {
+            allArticles[idx].segments = segments;
+            await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(allArticles));
+          }
+        }
+      }
+
+      return article;
     } catch (error) {
       console.error('Error getting article:', error);
       return null;
@@ -27,12 +50,16 @@ export class StorageService {
   }
 
   static async saveArticle(formData: ArticleFormData, articleId?: string): Promise<Article> {
+    DebugService.log('STORAGE', 'Saving article', { articleId, contentLength: formData.content?.length });
+    
     try {
       const articles = await this.getAllArticles();
       const now = Date.now();
       
       // Segment the content for tap-to-lookup
+      DebugService.log('STORAGE', 'Starting segmentation for article');
       const segments = await segmentArticle(formData.content);
+      DebugService.log('STORAGE', `Segmentation complete: ${segments.length} segments`);
       
       if (articleId) {
         const index = articles.findIndex(a => a.id === articleId);
@@ -45,6 +72,7 @@ export class StorageService {
             segments,
           };
           await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
+          DebugService.log('STORAGE', 'Article updated successfully', { articleId, segmentsCount: segments.length });
           return articles[index];
         }
       }
@@ -60,9 +88,10 @@ export class StorageService {
 
       articles.unshift(newArticle);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
+      DebugService.log('STORAGE', 'New article saved successfully', { articleId: newArticle.id, segmentsCount: segments.length });
       return newArticle;
     } catch (error) {
-      console.error('Error saving article:', error);
+      DebugService.logError('STORAGE', 'Error saving article', error);
       throw error;
     }
   }

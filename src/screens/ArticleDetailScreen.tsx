@@ -11,10 +11,14 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Article, RootStackParamList, ReadingProgress } from '../types';
+import { Article, RootStackParamList, ReadingProgress, SegmentedWord } from '../types';
 import { StorageService } from '../services/storage';
-import { paginateContent, PaginationResult } from '../utils/pagination';
+import DebugService from '../services/debug';
+import { paginateContent, PaginationResult, getPageForPosition, getPositionForPage } from '../utils/pagination';
+import { getSegmentsForPage } from '../services/segmentation';
 import PaginationControls from '../components/PaginationControls';
+import SegmentedText from '../components/SegmentedText';
+import WordLookupModal from '../components/WordLookupModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -41,15 +45,27 @@ export default function ArticleDetailScreen() {
   const [totalPages, setTotalPages] = useState(1);
   const [needsPagination, setNeedsPagination] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  
+  // Word lookup state
+  const [selectedWord, setSelectedWord] = useState<SegmentedWord | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     loadArticle();
   }, [articleId]);
 
   const loadArticle = async () => {
+    DebugService.log('ARTICLE_VIEW', 'Loading article', { articleId });
+    
     try {
       const data = await StorageService.getArticleById(articleId);
       if (data) {
+        DebugService.log('ARTICLE_VIEW', 'Article loaded', { 
+          hasSegments: !!data.segments,
+          segmentsCount: data.segments?.length,
+          contentLength: data.content?.length
+        });
+        
         setArticle(data);
         navigation.setOptions({ title: data.title || 'Article' });
         
@@ -61,6 +77,12 @@ export default function ArticleDetailScreen() {
           FONT_SIZE,
           LINE_HEIGHT
         );
+        
+        DebugService.log('ARTICLE_VIEW', 'Pagination calculated', {
+          needsPagination: paginationResult.needsPagination,
+          totalPages: paginationResult.totalPages,
+          pagesLength: paginationResult.pages.length
+        });
         
         setPages(paginationResult.pages);
         setTotalPages(paginationResult.totalPages);
@@ -79,9 +101,11 @@ export default function ArticleDetailScreen() {
             });
           }, 100);
         }
+      } else {
+        DebugService.log('ARTICLE_VIEW', 'Article not found', { articleId });
       }
     } catch (error) {
-      console.error('Error loading article:', error);
+      DebugService.logError('ARTICLE_VIEW', 'Error loading article', error);
     } finally {
       setLoading(false);
     }
@@ -164,13 +188,55 @@ export default function ArticleDetailScreen() {
     }
   }, [currentPage, totalPages, width, saveProgress]);
 
-  const renderPage = ({ item, index }: { item: string; index: number }) => (
-    <View style={[styles.pageContainer, { width }]}>
-      <View style={styles.pageContent}>
-        <Text style={styles.contentText}>{item}</Text>
+  const handleWordPress = (word: SegmentedWord) => {
+    DebugService.log('ARTICLE_VIEW', 'Word pressed', { 
+      word: word.text, 
+      start: word.start, 
+      end: word.end,
+      isInDictionary: word.isInDictionary 
+    });
+    setSelectedWord(word);
+    setModalVisible(true);
+  };
+
+  const renderPage = ({ item, index }: { item: string; index: number }) => {
+    // Calculate page boundaries
+    let pageStart = 0;
+    for (let i = 0; i < index; i++) {
+      pageStart += pages[i].length;
+    }
+    const pageEnd = pageStart + item.length;
+    
+    DebugService.log('ARTICLE_VIEW', `Rendering page ${index}`, { pageStart, pageEnd });
+    
+    // Get segments for this page
+    const pageSegments = article?.segments
+      ? getSegmentsForPage(article.segments, pageStart, pageEnd)
+      : [];
+
+    DebugService.log('ARTICLE_VIEW', `Page ${index} segments`, { 
+      count: pageSegments.length,
+      hasSegments: pageSegments.length > 0 
+    });
+
+    return (
+      <View style={[styles.pageContainer, { width }]}>
+        <View style={styles.pageContent}>
+          {pageSegments.length > 0 ? (
+            <SegmentedText
+              segments={pageSegments}
+              content={item}
+              onWordPress={handleWordPress}
+              fontSize={FONT_SIZE}
+              lineHeight={LINE_HEIGHT}
+            />
+          ) : (
+            <Text style={styles.contentText}>{item}</Text>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -236,7 +302,17 @@ export default function ArticleDetailScreen() {
       ) : (
         <View style={styles.singlePageContainer}>
           <View style={styles.pageContent}>
-            <Text style={styles.contentText}>{article.content}</Text>
+            {article?.segments && article.segments.length > 0 ? (
+              <SegmentedText
+                segments={article.segments}
+                content={article.content}
+                onWordPress={handleWordPress}
+                fontSize={FONT_SIZE}
+                lineHeight={LINE_HEIGHT}
+              />
+            ) : (
+              <Text style={styles.contentText}>{article.content}</Text>
+            )}
           </View>
         </View>
       )}
@@ -265,6 +341,16 @@ export default function ArticleDetailScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Word Lookup Modal */}
+      <WordLookupModal
+        visible={modalVisible}
+        word={selectedWord}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedWord(null);
+        }}
+      />
     </View>
   );
 }

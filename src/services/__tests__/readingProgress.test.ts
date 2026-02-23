@@ -59,6 +59,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 50,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -77,6 +79,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 100,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -97,6 +101,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 50,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(initialProgress);
@@ -106,6 +112,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 150,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(updatedProgress);
@@ -122,6 +130,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 50,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -145,6 +155,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 50,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -165,6 +177,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: roundedPosition,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -251,6 +265,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       // Determine which page contains this position
@@ -281,6 +297,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       expect(progress.charPosition).toBeGreaterThanOrEqual(0);
@@ -295,6 +313,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 0,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -313,6 +333,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: sampleContent.length,
         totalChars: sampleContent.length,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress);
@@ -331,6 +353,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 50,
         totalChars: 1000,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       const progress2: ReadingProgress = {
@@ -338,6 +362,8 @@ describe('Reading Progress with Character Position', () => {
         charPosition: 200,
         totalChars: 2000,
         lastReadAt: Date.now(),
+        currentPage: 0,
+        totalPages: 1,
       };
 
       await StorageService.saveReadingProgress(progress1);

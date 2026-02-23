@@ -16,6 +16,14 @@ fi
 echo "✅ Dependencies installed"
 
 echo ""
+echo "📖 Step 2b: Building dictionary data..."
+npm run build:dict
+if [ $? -ne 0 ]; then
+  echo "⚠️  Dictionary build failed (app will still work, but lookups will be limited)"
+fi
+echo "✅ Dictionary built"
+
+echo ""
 echo "🏗️  Step 3: Rebuilding iOS..."
 npx expo prebuild --clean --platform ios
 if [ $? -ne 0 ]; then
