@@ -41,5 +41,6 @@ export type RootStackParamList = {
   ArticleEditor: { articleId?: string };
   Camera: { onCapture: (text: string, title?: string, source?: string) => void };
   Settings: undefined;
+  HSKBrowser: undefined;
 };
 

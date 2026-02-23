@@ -8,6 +8,7 @@ import ArticleDetailScreen from '../screens/ArticleDetailScreen';
 import ArticleEditorScreen from '../screens/ArticleEditorScreen';
 import CameraScreen from '../screens/CameraScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import HSKBrowserScreen from '../screens/HSKBrowserScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -56,6 +57,11 @@ export default function AppNavigator() {
           name="Settings"
           component={SettingsScreen}
           options={{ title: 'Settings' }}
+        />
+        <Stack.Screen
+          name="HSKBrowser"
+          component={HSKBrowserScreen}
+          options={{ title: 'Characters' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

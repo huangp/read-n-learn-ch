@@ -29,12 +29,18 @@ export default function HomeScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Settings')}
-          style={{ marginRight: 16 }}
-        >
-          <Text style={{ fontSize: 16, color: '#007AFF' }}>Settings</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 16 }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('HSKBrowser')}
+          >
+            <Text style={{ fontSize: 16, color: '#007AFF' }}>Characters</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Text style={{ fontSize: 16, color: '#007AFF' }}>Settings</Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [navigation]);

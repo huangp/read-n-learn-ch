@@ -14,22 +14,28 @@ import { searchDictionarySync } from '../services/dictionaryLoader';
 
 interface WordLookupModalProps {
   visible: boolean;
-  word: SegmentedWord | null;
+  word?: SegmentedWord | null;
+  /** Plain text alternative to `word` — use when you don't have a SegmentedWord */
+  wordText?: string | null;
   onClose: () => void;
 }
 
 export default function WordLookupModal({
   visible,
   word,
+  wordText,
   onClose,
 }: WordLookupModalProps) {
   const { height } = useWindowDimensions();
 
+  // Resolve the actual text to look up
+  const text = word?.text ?? wordText ?? null;
+
   // Synchronous lookup - dictionary is preloaded at app startup
   const lookup: WordLookupResult | null = useMemo(() => {
-    if (!word?.text) return null;
+    if (!text) return null;
 
-    const entry = searchDictionarySync(word.text);
+    const entry = searchDictionarySync(text);
 
     // Build character breakdown with alternate readings
     const chars: Array<{
@@ -39,8 +45,8 @@ export default function WordLookupModal({
       contextualMeaning: string;
       alternateReadings?: Array<{ pinyin: string; meaning: string }>;
     }> = [];
-    if (word.text.length > 1) {
-      for (const c of word.text) {
+    if (text.length > 1) {
+      for (const c of text) {
         if (/[\u4e00-\u9fa5]/.test(c)) {
           const ce = searchDictionarySync(c);
           const alts: Array<{ pinyin: string; meaning: string }> = [];
@@ -82,22 +88,22 @@ export default function WordLookupModal({
     }
 
     return {
-      word: word.text,
+      word: text,
       pinyin: '',
       definitions: ['(Not found in dictionary)'],
       pos: '',
       examples: [],
       characters: chars,
     };
-  }, [word?.text]);
+  }, [text]);
 
-  if (!word) return null;
+  if (!text) return null;
 
   // ---- Sub-renderers ----
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.wordText}>{lookup?.word ?? word.text}</Text>
+      <Text style={styles.wordText}>{lookup?.word ?? text}</Text>
       {lookup?.pinyin ? (
         <Text style={styles.pinyin}>{lookup.pinyin}</Text>
       ) : null}
