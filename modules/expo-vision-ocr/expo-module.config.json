@@ -1,0 +1,8 @@
+{
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["ExpoVisionOcrModule"],
+    "podspecPath": "./ExpoVisionOcr.podspec"
+  }
+}
+

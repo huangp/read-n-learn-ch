@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { extractText } from 'expo-pdf-text-extract';
+import { recognizeText } from '../../modules/expo-vision-ocr';
 import { extractChineseContent } from '../utils/textProcessing';
 
 export interface FileProcessingResult {
@@ -196,14 +197,38 @@ export class FileProcessingService {
     );
   }
 
-  private static async extractFromImage(_uri: string): Promise<string> {
-    // OCR is not currently available
-    // TODO: Integrate a React Native compatible OCR library
-    throw new Error(
-      'Image text extraction (OCR) is not yet supported. ' +
-      'Please use a text file, PDF, or DOCX instead, ' +
-      'or manually type the text from the image.'
-    );
+  private static async extractFromImage(uri: string): Promise<string> {
+    try {
+      const result = await recognizeText(uri);
+
+      if (!result || !result.text || !result.text.trim()) {
+        throw new Error(
+          'No text could be recognized in this image. ' +
+          'Try using a clearer image with better lighting.'
+        );
+      }
+
+      // result.blocks contains individual text observations from Vision framework
+      const text = result.blocks.map(block => block.text).join('\n');
+
+      if (!text.trim()) {
+        throw new Error(
+          'No text could be recognized in this image. ' +
+          'Try using a clearer image with better lighting.'
+        );
+      }
+
+      return text;
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('No text could be')) {
+        throw error;
+      }
+      console.error('OCR error:', error);
+      throw new Error(
+        'Failed to extract text from image. ' +
+        'Please ensure the image contains readable text.'
+      );
+    }
   }
 
 

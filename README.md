@@ -97,6 +97,37 @@ This script will:
 4. Run `npx expo prebuild --clean --platform ios`
 5. Run `npm run ios`
 
+
+If you only change npm packages:
+```npm install
+cd ios && pod install && cd ..
+npx expo run:ios
+```
+Or if npx expo run:ios has the Xcode 26 destination issues from before, use the approach from your restart-app.sh:
+```npm install
+cd ios && pod install && cd ..
+xcodebuild -workspace ios/*.xcworkspace -scheme YourApp -destination 'generic/platform=iOS Simulator' -quiet
+xcrun simctl install booted ios/build/Build/Products/Debug-iphonesimulator/YourApp.app
+xcrun simctl launch booted com.yourapp.bundleid
+npx expo start
+```
+Quick reference:
+Change
+Command
+JS/TS code only
+Metro hot-reloads automatically
+npm packages (JS only)
+npm install then restart Metro
+npm packages (with native code)
+npm install && cd ios && pod install && cd .. && restart-app.sh
+Native module changes
+restart-app.sh
+Full clean rebuild
+restart-app.sh (if it runs npx expo prebuild --clean)
+Key thing to remember:
+If the new npm package has native iOS dependencies (pods), you must run pod install after npm install. If it's a JS-only package, just restarting Metro is enough.
+
+
 ### Running the App
 
 #### Option 1: Build and run on iOS Simulator
