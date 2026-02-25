@@ -26,6 +26,21 @@ export interface ArticleFormData {
   source?: string;
 }
 
+export interface FileProcessingResult {
+  success: boolean;
+  text?: string;
+  title?: string;
+  error?: string;
+  source?: string;
+}
+
+export interface MultipleFileProcessingResult {
+  success: boolean;
+  results?: FileProcessingResult[];
+  error?: string;
+  failedImages?: string[];
+}
+
 export interface ReadingProgress {
   articleId: string;
   charPosition?: number; // Character index in content, rounded to nearest word boundary

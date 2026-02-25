@@ -4,17 +4,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { extractText } from 'expo-pdf-text-extract';
 import { recognizeText } from '../../modules/expo-vision-ocr';
 import { extractChineseContent } from '../utils/textProcessing';
-
-export interface FileProcessingResult {
-  success: boolean;
-  text?: string;
-  title?: string;
-  error?: string;
-  source?: string;
-}
+import { FileProcessingResult, MultipleFileProcessingResult } from '../types';
 
 export class FileProcessingService {
   private static readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  private static readonly MAX_IMAGES = 10;
 
   static async pickDocument(): Promise<FileProcessingResult> {
     try {
@@ -55,7 +49,7 @@ export class FileProcessingService {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 1,
       });
@@ -84,6 +78,87 @@ export class FileProcessingService {
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to pick image' 
+      };
+    }
+  }
+
+  static async pickMultipleImages(
+    onProgress?: (current: number, total: number) => void
+  ): Promise<MultipleFileProcessingResult> {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        return { 
+          success: false, 
+          error: 'Permission to access media library is required' 
+        };
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 1,
+        allowsMultipleSelection: true,
+        selectionLimit: this.MAX_IMAGES,
+      });
+
+      if (result.canceled) {
+        return { success: false, error: 'User cancelled' };
+      }
+
+      const images = result.assets;
+      const results: FileProcessingResult[] = [];
+      const failedImages: string[] = [];
+
+      // Process images sequentially to maintain order
+      for (let i = 0; i < images.length; i++) {
+        const file = images[i];
+        const fileName = file.uri.split('/').pop() || `image_${i + 1}.jpg`;
+
+        // Report progress
+        if (onProgress) {
+          onProgress(i + 1, images.length);
+        }
+
+        // Determine MIME type from file extension if file.type is incomplete
+        let mimeType = file.type || 'image/jpeg';
+        if (mimeType === 'image' || !mimeType.includes('/')) {
+          const ext = fileName.split('.').pop()?.toLowerCase();
+          if (ext === 'png') {
+            mimeType = 'image/png';
+          } else {
+            mimeType = 'image/jpeg';
+          }
+        }
+
+        const processResult = await this.processFile(file.uri, mimeType, fileName);
+        
+        if (processResult.success) {
+          results.push(processResult);
+        } else {
+          failedImages.push(fileName);
+        }
+      }
+
+      // If any images failed, return error with list of failed images
+      if (failedImages.length > 0) {
+        return {
+          success: false,
+          error: `Failed to process ${failedImages.length} image(s)`,
+          failedImages,
+        };
+      }
+
+      return {
+        success: true,
+        results,
+      };
+    } catch (error) {
+      console.error('Error picking multiple images:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to pick images' 
       };
     }
   }

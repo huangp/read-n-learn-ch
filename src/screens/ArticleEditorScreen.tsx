@@ -11,6 +11,7 @@ import {
   Platform,
   useWindowDimensions,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -35,6 +36,7 @@ export default function ArticleEditorScreen() {
   const [source, setSource] = useState('');
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     if (isEditing) {
@@ -102,20 +104,54 @@ export default function ArticleEditorScreen() {
 
   const handleImportImage = async () => {
     setImporting(true);
+    setProcessingProgress({ current: 0, total: 0 });
+    
     try {
-      const result = await FileProcessingService.pickImage();
-      if (result.success && result.text) {
-        setContent(result.text);
-        if (result.title) setTitle(result.title);
-        if (result.source) setSource(result.source);
-        Alert.alert('Success', 'Image imported successfully!');
+      const result = await FileProcessingService.pickMultipleImages(
+        (current, total) => {
+          setProcessingProgress({ current, total });
+        }
+      );
+      
+      if (result.success && result.results && result.results.length > 0) {
+        // Combine all texts with separator, maintaining order
+        const allTexts = result.results.map(r => r.text).filter(Boolean) as string[];
+        const combinedText = allTexts.join('\n\n---\n\n');
+        
+        // Use first successful result for title and source
+        const firstResult = result.results[0];
+        
+        setContent(prev => {
+          if (prev.trim()) {
+            return prev + '\n\n---\n\n' + combinedText;
+          }
+          return combinedText;
+        });
+        
+        if (firstResult.title) setTitle(firstResult.title);
+        if (firstResult.source) setSource(`Gallery Import (${result.results.length} images)`);
+        
+        Alert.alert(
+          'Success', 
+          `${result.results.length} image${result.results.length > 1 ? 's' : ''} imported successfully!`
+        );
       } else if (result.error && result.error !== 'User cancelled') {
-        Alert.alert('Import Error', result.error);
+        // Show detailed error with failed image names
+        if (result.failedImages && result.failedImages.length > 0) {
+          const failedList = result.failedImages.join(', ');
+          Alert.alert(
+            'Import Error',
+            `${result.error}\n\nFailed images: ${failedList}\n\nPlease try again with different images.`
+          );
+        } else {
+          Alert.alert('Import Error', result.error);
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to import image');
+      Alert.alert('Error', 'Failed to import images');
     } finally {
       setImporting(false);
+      setProcessingProgress({ current: 0, total: 0 });
     }
   };
 
@@ -232,6 +268,17 @@ export default function ArticleEditorScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Processing Overlay */}
+      <Modal visible={importing && processingProgress.total > 0} transparent={true} animationType="fade">
+        <View style={styles.processingOverlay}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.processingText}>
+            Processing image {processingProgress.current} of {processingProgress.total}...
+          </Text>
+          <Text style={styles.processingSubtext}>Extracting text with OCR</Text>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -348,5 +395,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  processingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  processingText: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 20,
+    fontWeight: '600',
+  },
+  processingSubtext: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 8,
   },
 });
