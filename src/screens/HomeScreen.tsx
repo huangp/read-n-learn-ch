@@ -104,9 +104,9 @@ export default function HomeScreen() {
             <Text variant="titleMedium" numberOfLines={2}>
               {item.title || 'Untitled'}
             </Text>
-            <Text variant="bodyLarge" numberOfLines={2} style={styles.articlePreview}>
-              {item.content.substring(0, 100)}...
-            </Text>
+             <Text variant="bodyMedium" numberOfLines={2} style={styles.articlePreview}>
+               {item.content}
+             </Text>
           </View>
           <View style={styles.metaContainer}>
             <Icon source="format-size" size={14} color={theme.colors.onSurfaceVariant} />
@@ -209,7 +209,6 @@ const styles = StyleSheet.create({
     margin: 8,
   },
   listContainer: {
-    flex: 1,
     padding: 4,
   },
   articleCard: {
