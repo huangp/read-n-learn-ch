@@ -8,10 +8,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
-    "build:hsk": "node scripts/download-hsk56.js",
-    "build:dict": "node scripts/download-hsk56.js && node scripts/build-dictionary.js"
+    "build:dict": "node scripts/build-dictionary.js",
+    "reset:db": "node scripts/reset-db.js"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/native": "^7.1.28",
     "@react-navigation/stack": "^7.7.2",
@@ -29,6 +30,7 @@
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-paper": "^5.15.0",
     "react-native-popup-menu": "^0.19.0",
     "react-native-safe-area-context": "^5.6.2",
     "react-native-screens": "~4.16.0",

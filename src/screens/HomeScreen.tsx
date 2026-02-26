@@ -33,7 +33,7 @@ export default function HomeScreen() {
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 16 }}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('HSKBrowser')}
+            onPress={() => navigation.navigate('CharacterBrowser')}
           >
             <Text style={{ fontSize: 16, color: '#007AFF' }}>Characters</Text>
           </TouchableOpacity>

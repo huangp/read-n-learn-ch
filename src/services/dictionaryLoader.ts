@@ -279,3 +279,11 @@ export function searchDictionarySync(word: string): DictionaryEntry | null {
   cache.set(word, null);
   return null;
 }
+
+/**
+ * Get the dictionary database instance for direct queries.
+ * Returns null if database is not initialized yet.
+ */
+export function getDictionaryDatabase(): SQLite.SQLiteDatabase | null {
+  return db;
+}

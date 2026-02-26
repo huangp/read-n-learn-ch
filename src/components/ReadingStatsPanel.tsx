@@ -8,12 +8,10 @@ interface ReadingStatsPanelProps {
 }
 
 interface Stats {
-  totalCharacters: number;
-  knownCharacters: number;
-  learningCharacters: number;
-  unknownCharacters: number;
-  totalWords: number;
-  knownWords: number;
+  totalVocabulary: number;
+  knownVocabulary: number;
+  learningVocabulary: number;
+  unknownVocabulary: number;
   totalSessions: number;
   totalLookups: number;
 }
@@ -36,19 +34,19 @@ export default function ReadingStatsPanel({ articleId, sessionId }: ReadingStats
 
   if (!stats) return null;
 
-  const knownPct = stats.totalCharacters > 0
-    ? Math.round((stats.knownCharacters / stats.totalCharacters) * 100)
+  const knownPct = stats.totalVocabulary > 0
+    ? Math.round((stats.knownVocabulary / stats.totalVocabulary) * 100)
     : 0;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📊 Character Recognition</Text>
+      <Text style={styles.title}>📊 Vocabulary Recognition</Text>
 
       {/* Progress bar */}
       <View style={styles.progressBarBg}>
-        <View style={[styles.progressBarKnown, { flex: stats.knownCharacters || 0 }]} />
-        <View style={[styles.progressBarLearning, { flex: stats.learningCharacters || 0 }]} />
-        <View style={[styles.progressBarUnknown, { flex: stats.unknownCharacters || 1 }]} />
+        <View style={[styles.progressBarKnown, { flex: stats.knownVocabulary || 0 }]} />
+        <View style={[styles.progressBarLearning, { flex: stats.learningVocabulary || 0 }]} />
+        <View style={[styles.progressBarUnknown, { flex: stats.unknownVocabulary || 1 }]} />
       </View>
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
@@ -68,15 +66,15 @@ export default function ReadingStatsPanel({ articleId, sessionId }: ReadingStats
       {/* Stats grid */}
       <View style={styles.grid}>
         <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{stats.totalCharacters}</Text>
-          <Text style={styles.statLabel}>Characters{'\n'}Seen</Text>
+          <Text style={styles.statNumber}>{stats.totalVocabulary}</Text>
+          <Text style={styles.statLabel}>Vocabulary{'\n'}Seen</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: '#34C759' }]}>{stats.knownCharacters}</Text>
+          <Text style={[styles.statNumber, { color: '#34C759' }]}>{stats.knownVocabulary}</Text>
           <Text style={styles.statLabel}>Known{'\n'}({knownPct}%)</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: '#FF9500' }]}>{stats.learningCharacters}</Text>
+          <Text style={[styles.statNumber, { color: '#FF9500' }]}>{stats.learningVocabulary}</Text>
           <Text style={styles.statLabel}>Learning</Text>
         </View>
         <View style={styles.statBox}>

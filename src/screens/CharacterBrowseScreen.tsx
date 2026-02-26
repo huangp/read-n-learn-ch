@@ -1,19 +1,29 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   useWindowDimensions,
-  ActivityIndicator,
-  Modal,
+  ScrollView,
+  Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import CharacterRecognitionService from '../services/characterRecognition';
+import {
+  Card,
+  Text,
+  Chip,
+  Button,
+  IconButton,
+  Portal,
+  Dialog,
+  ActivityIndicator,
+} from 'react-native-paper';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types';
+import CharacterRecognitionService, { Tag } from '../services/characterRecognition';
 import WordLookupModal from '../components/WordLookupModal';
 
-// ---------- Pre-compute HSK data once at module load time ----------
+// ---------- Types ----------
 
 interface HSKWord {
   word: string;
@@ -26,23 +36,6 @@ interface SpacerItem {
 }
 
 type GridItem = HSKWord | SpacerItem;
-
-let _hskCache: Record<number, HSKWord[]> | null = null;
-
-function getAllHSKWords(): Record<number, HSKWord[]> {
-  if (_hskCache) return _hskCache;
-  _hskCache = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-  try {
-    const data: Array<{ s: string; h?: number }> =
-      require('../../assets/dict/cedict-core.json');
-    for (const e of data) {
-      if (e.h && e.h >= 1 && e.h <= 6) {
-        _hskCache[e.h].push({ word: e.s });
-      }
-    }
-  } catch {}
-  return _hskCache;
-}
 
 const HSK_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
@@ -62,15 +55,22 @@ const WordCard = React.memo(function WordCard({
   onLongPress: (w: string) => void;
 }) {
   return (
-    <TouchableOpacity
+    <Card
+      mode={isKnown ? 'outlined' : 'elevated'}
       style={[styles.card, isKnown && styles.cardKnown]}
       onPress={() => onPress(word)}
       onLongPress={() => onLongPress(word)}
       delayLongPress={300}
-      activeOpacity={0.7}
     >
-      <Text style={[styles.cardWord, isKnown && styles.cardWordKnown]}>{word}</Text>
-    </TouchableOpacity>
+      <Card.Content style={styles.cardContent}>
+        <Text 
+          variant="titleLarge" 
+          style={[styles.cardWord, isKnown && styles.cardWordKnown]}
+        >
+          {word}
+        </Text>
+      </Card.Content>
+    </Card>
   );
 });
 
@@ -80,30 +80,53 @@ const SpacerCard = React.memo(function SpacerCard() {
 
 // ---------- Main screen ----------
 
-export default function HSKBrowserScreen() {
+export default function CharacterBrowseScreen() {
   const { width } = useWindowDimensions();
   const dataColumns = width >= 768 ? 7 : 3;
   const numColumns = dataColumns + 1;
 
-  const [selectedLevel, setSelectedLevel] = useState<number>(1);
+  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [knownMap, setKnownMap] = useState<Map<string, boolean>>(new Map());
   const [loading, setLoading] = useState(true);
   const [lookupWord, setLookupWord] = useState<string | null>(null);
   const [lookupVisible, setLookupVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagCharacters, setTagCharacters] = useState<string[]>([]);
+  const [characterTags, setCharacterTags] = useState<Map<string, Tag[]>>(new Map());
+  const [tagModalVisible, setTagModalVisible] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
 
-  // Pre-loaded at module level — no per-render cost
-  const hskData = useMemo(() => getAllHSKWords(), []);
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
-  const currentWords = hskData[selectedLevel] || [];
+  // Load HSK words from SQLite
+  const [hskWords, setHskWords] = useState<Record<number, HSKWord[]>>({
+    1: [], 2: [], 3: [], 4: [], 5: [], 6: []
+  });
 
-  // Preload known status for ALL levels once, then just re-read on focus
+  const loadHSKWords = useCallback(async () => {
+    const words: Record<number, HSKWord[]> = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    for (const level of HSK_LEVELS) {
+      const levelWords = await CharacterRecognitionService.getHSKWordsByLevel(level);
+      words[level] = levelWords.map(w => ({ word: w }));
+    }
+    setHskWords(words);
+  }, []);
+
+  const currentWords = useMemo(() => {
+    if (selectedTagId) {
+      return tagCharacters.map(char => ({ word: char }));
+    }
+    return [];
+  }, [selectedTagId, tagCharacters]);
+
+  // Preload known status for all HSK words
   const allWordsRef = useRef<string[]>([]);
   if (allWordsRef.current.length === 0) {
     const all: string[] = [];
     for (const level of HSK_LEVELS) {
-      for (const w of (hskData[level] || [])) all.push(w.word);
+      for (const w of (hskWords[level] || [])) all.push(w.word);
     }
     allWordsRef.current = all;
   }
@@ -115,11 +138,75 @@ export default function HSKBrowserScreen() {
     setLoading(false);
   }, []);
 
+  const loadTags = useCallback(async () => {
+    const allTags = await CharacterRecognitionService.getAllTags();
+    setTags(allTags);
+  }, []);
+
+  const loadVocabularyTags = useCallback(async (vocabularyIds: string[]) => {
+    const tagMap = new Map<string, Tag[]>();
+    for (const id of vocabularyIds) {
+      const itemTags = await CharacterRecognitionService.getVocabularyTags(id);
+      tagMap.set(id, itemTags);
+    }
+    setCharacterTags(tagMap);
+  }, []);
+
+  const loadTagVocabulary = useCallback(async (tagId: number) => {
+    setLoading(true);
+    
+    try {
+      // Find the tag name to check if it's an HSK tag
+      const tag = tags.find(t => t.id === tagId);
+      const hskMatch = tag?.name.match(/^HSK(\d)$/);
+      
+      let vocabularyIds: string[];
+      if (hskMatch) {
+        // Use hsk_level column for HSK tags (more reliable)
+        const level = parseInt(hskMatch[1], 10);
+        vocabularyIds = await CharacterRecognitionService.getVocabularyByHSKLevel(level);
+        console.log(`[TagFilter] HSK${level}: loaded ${vocabularyIds.length} items`);
+      } else {
+        // Use vocabulary_tags table for other tags
+        vocabularyIds = await CharacterRecognitionService.getVocabularyByTag(tagId);
+        console.log(`[TagFilter] Tag ${tagId}: loaded ${vocabularyIds.length} items`);
+      }
+      
+      setTagCharacters(vocabularyIds);
+      
+      // Load known status for vocabulary items
+      if (vocabularyIds.length > 0) {
+        const map = await CharacterRecognitionService.getKnownStatusBatch(vocabularyIds);
+        setKnownMap(map);
+        // Load tags for vocabulary
+        await loadVocabularyTags(vocabularyIds);
+      } else {
+        setKnownMap(new Map());
+        setCharacterTags(new Map());
+      }
+    } catch (error) {
+      console.error('[TagFilter] Error loading tag vocabulary:', error);
+      setTagCharacters([]);
+      setKnownMap(new Map());
+      setCharacterTags(new Map());
+    } finally {
+      setLoading(false);
+    }
+  }, [loadVocabularyTags, tags]);
+
   useFocusEffect(
     useCallback(() => {
+      loadHSKWords();
       loadKnownStatus();
-    }, [loadKnownStatus])
+      loadTags();
+    }, [loadHSKWords, loadKnownStatus, loadTags])
   );
+
+  useEffect(() => {
+    if (selectedTagId) {
+      loadTagVocabulary(selectedTagId);
+    }
+  }, [selectedTagId, loadTagVocabulary]);
 
   // Filtered list
   const filteredWords = useMemo(() => {
@@ -163,7 +250,7 @@ export default function HSKBrowserScreen() {
   }, [filteredWords, dataColumns]);
 
   // Stable callbacks — don't recreate on every render
-  const handleToggle = useCallback(async (word: string) => {
+  const handleToggleKnown = useCallback(async (word: string) => {
     const nowKnown = await CharacterRecognitionService.toggleWordKnown(word);
     setKnownMap((prev) => {
       const next = new Map(prev);
@@ -172,40 +259,49 @@ export default function HSKBrowserScreen() {
     });
   }, []);
 
-  const handleLongPress = useCallback((word: string) => {
+  const handleShowDefinition = useCallback((word: string) => {
     setLookupWord(word);
     setLookupVisible(true);
   }, []);
 
-  const renderLevelTab = (level: number) => {
-    const isSelected = level === selectedLevel;
-    return (
-      <TouchableOpacity
-        key={level}
-        style={[styles.levelTab, isSelected && styles.levelTabSelected]}
-        onPress={() => setSelectedLevel(level)}
-      >
-        <Text style={[styles.levelTabText, isSelected && styles.levelTabTextSelected]}>
-          HSK {level}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
 
-  const renderFilterTab = (mode: FilterMode, label: string) => {
+  const renderTagTab = useCallback((tag: Tag) => {
+    const isSelected = selectedTagId === tag.id;
+    return (
+      <Chip
+        key={tag.id}
+        selected={isSelected}
+        onPress={() => {
+          if (isSelected) {
+            setSelectedTagId(null);
+          } else {
+            setSelectedTagId(tag.id);
+          }
+        }}
+        style={[styles.tagChip, isSelected && { backgroundColor: '#FF9500' }]}
+        // selectedColor="#FF9500"
+        showSelectedCheck={false}
+      >
+        {tag.name}
+      </Chip>
+    );
+  }, [selectedTagId, setSelectedTagId]);
+
+  const renderFilterTab = useCallback((mode: FilterMode, label: string) => {
     const isSelected = filterMode === mode;
     return (
-      <TouchableOpacity
+      <Chip
         key={mode}
-        style={[styles.filterTab, isSelected && styles.filterTabSelected]}
+        selected={isSelected}
         onPress={() => setFilterMode(mode)}
+        mode={isSelected ? 'flat' : 'outlined'}
+        style={styles.filterChip}
+        showSelectedCheck={false}
       >
-        <Text style={[styles.filterTabText, isSelected && styles.filterTabTextSelected]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
+        {label}
+      </Chip>
     );
-  };
+  }, [filterMode, setFilterMode]);
 
   const renderWordCard = useCallback(({ item }: { item: GridItem }) => {
     if (item.isSpacer) {
@@ -216,19 +312,19 @@ export default function HSKBrowserScreen() {
       <WordCard
         word={item.word}
         isKnown={isKnown}
-        onPress={handleToggle}
-        onLongPress={handleLongPress}
+        onPress={handleShowDefinition}
+        onLongPress={handleToggleKnown}
       />
     );
-  }, [knownMap, handleToggle, handleLongPress]);
+  }, [knownMap, handleShowDefinition, handleToggleKnown]);
 
   const keyExtractor = useCallback((item: GridItem) => item.word, []);
 
   return (
     <View style={styles.container}>
-      {/* HSK Level Tabs */}
-      <View style={styles.levelRow}>
-        {HSK_LEVELS.map(renderLevelTab)}
+      {/* Tag Filter - Only show tags, no HSK tabs */}
+      <View style={styles.tagRowWrap}>
+        {tags.map(renderTagTab)}
       </View>
 
       {/* Stats Bar */}
@@ -249,12 +345,19 @@ export default function HSKBrowserScreen() {
           {renderFilterTab('known', `Known (${stats.known})`)}
           {renderFilterTab('unknown', `Unknown (${stats.unknown})`)}
         </View>
-        <TouchableOpacity
-          style={styles.helpButton}
-          onPress={() => setHelpVisible(true)}
+        <Button
+          mode="contained"
+          onPress={() => navigation.navigate('TagManagement')}
+          compact
+          style={styles.tagsButton}
         >
-          <Text style={styles.helpButtonText}>?</Text>
-        </TouchableOpacity>
+          Tags
+        </Button>
+        <IconButton
+          icon="help-circle"
+          size={24}
+          onPress={() => setHelpVisible(true)}
+        />
       </View>
 
       {/* Word Grid */}
@@ -305,34 +408,24 @@ export default function HSKBrowserScreen() {
         }}
       />
 
-      {/* Help Modal */}
-      <Modal
-        visible={helpVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setHelpVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.helpOverlay}
-          activeOpacity={1}
-          onPress={() => setHelpVisible(false)}
-        >
-          <View style={styles.helpCard}>
-            <Text style={styles.helpTitle}>How to Use</Text>
-
+      {/* Help Dialog */}
+      <Portal>
+        <Dialog visible={helpVisible} onDismiss={() => setHelpVisible(false)}>
+          <Dialog.Title>How to Use</Dialog.Title>
+          <Dialog.Content>
             <View style={styles.helpRow}>
               <Text style={styles.helpIcon}>👆</Text>
               <View style={styles.helpTextBlock}>
-                <Text style={styles.helpAction}>Tap</Text>
-                <Text style={styles.helpDesc}>Toggle a word between known and unknown</Text>
+                <Text variant="bodyMedium" style={styles.helpAction}>Tap</Text>
+                <Text variant="bodySmall" style={styles.helpDesc}>View pinyin, definition, and character breakdown</Text>
               </View>
             </View>
 
             <View style={styles.helpRow}>
-              <Text style={styles.helpIcon}>👆💬</Text>
+              <Text style={styles.helpIcon}>👆⏱️</Text>
               <View style={styles.helpTextBlock}>
-                <Text style={styles.helpAction}>Long Press</Text>
-                <Text style={styles.helpDesc}>View pinyin, definition, and character breakdown</Text>
+                <Text variant="bodyMedium" style={styles.helpAction}>Long Press</Text>
+                <Text variant="bodySmall" style={styles.helpDesc}>Toggle a word between known and unknown</Text>
               </View>
             </View>
 
@@ -341,20 +434,57 @@ export default function HSKBrowserScreen() {
                 <Text style={styles.helpSampleText}>字</Text>
               </View>
               <View style={styles.helpTextBlock}>
-                <Text style={styles.helpAction}>Green border</Text>
-                <Text style={styles.helpDesc}>Word is marked as known</Text>
+                <Text variant="bodyMedium" style={styles.helpAction}>Green border</Text>
+                <Text variant="bodySmall" style={styles.helpDesc}>Word is marked as known</Text>
               </View>
             </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setHelpVisible(false)}>Got it</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
-            <TouchableOpacity
-              style={styles.helpCloseButton}
-              onPress={() => setHelpVisible(false)}
-            >
-              <Text style={styles.helpCloseText}>Got it</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Tag Management Dialog */}
+      <Portal>
+        <Dialog visible={tagModalVisible} onDismiss={() => setTagModalVisible(false)}>
+          <Dialog.Title>
+            {selectedCharacter ? `Tags for "${selectedCharacter}"` : 'Character Tags'}
+          </Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.tagModalButtons}>
+              <Button
+                mode="outlined"
+                icon="book-open"
+                onPress={() => {
+                  if (selectedCharacter) {
+                    setLookupWord(selectedCharacter);
+                    setLookupVisible(true);
+                  }
+                  setTagModalVisible(false);
+                }}
+                style={styles.tagModalButton}
+              >
+                View Details
+              </Button>
+              <Button
+                mode="outlined"
+                icon="tag"
+                onPress={() => {
+                  setTagModalVisible(false);
+                  navigation.navigate('TagManagement');
+                }}
+                style={styles.tagModalButton}
+              >
+                Manage Tags
+              </Button>
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setTagModalVisible(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -462,10 +592,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -473,14 +603,13 @@ const styles = StyleSheet.create({
     elevation: 1,
     borderWidth: 2,
     borderColor: 'transparent',
-    minHeight: 52,
+    height: 72,
   },
   spacerCard: {
     flex: 1,
-    minHeight: 52,
+    height: 72,
   },
   cardKnown: {
-    borderColor: '#34C759',
     backgroundColor: '#F0FFF4',
   },
   cardWord: {
@@ -587,5 +716,126 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  tagRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#fff',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E0E0E0',
+    gap: 8,
+  },
+  tagTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
+    marginRight: 8,
+  },
+  tagTabSelected: {
+    backgroundColor: '#FF9500',
+  },
+  tagTabText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#666',
+  },
+  tagTabTextSelected: {
+    color: '#fff',
+  },
+  tagContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 4,
+    gap: 2,
+  },
+  tagBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    minWidth: 16,
+    alignItems: 'center',
+  },
+  tagBadgeText: {
+    fontSize: 8,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  moreTagsText: {
+    fontSize: 8,
+    color: '#999',
+    marginLeft: 2,
+  },
+  tagBadgePlaceholder: {
+    height: 14,
+    minWidth: 16,
+  },
+  tagsButton: {
+    marginRight: 8,
+  },
+  tagChip: {
+    marginRight: 4,
+  },
+  filterChip: {
+    marginRight: 4,
+  },
+  cardContent: {
+    padding: 8,
+    alignItems: 'center',
+  },
+  tagChipText: {
+    fontSize: 8,
+    color: '#fff',
+  },
+  tagChipPlaceholder: {
+    height: 14,
+    minWidth: 16,
+  },
+  manageTagsButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  manageTagsButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tagModalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  tagModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  tagModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  tagModalButton: {
+    alignItems: 'center',
+    padding: 12,
+  },
+  tagModalButtonIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  tagModalButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
   },
 });
