@@ -914,20 +914,6 @@ class CharacterRecognitionService {
     return rows.map(r => r.id);
   }
 
-  async getVocabularyByHSKLevel(level: number): Promise<string[]> {
-    if (!this.db) {
-      console.log(`[HSK] getVocabularyByHSKLevel(${level}): database not initialized`);
-      return [];
-    }
-    
-    const rows = await this.db.getAllAsync<{ id: string }>(
-      'SELECT id FROM vocabulary WHERE hsk_level = ? ORDER BY id',
-      [level]
-    );
-    console.log(`[HSK] getVocabularyByHSKLevel(${level}): found ${rows.length} items`);
-    return rows.map(r => r.id);
-  }
-
   async getTagByName(name: string): Promise<Tag | null> {
     if (!this.db) return null;
     return await this.db.getFirstAsync<Tag>(

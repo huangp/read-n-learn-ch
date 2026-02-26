@@ -151,6 +151,7 @@ export default function HomeScreen() {
       <Appbar.Header>
         <Appbar.Content title="Read and Learn Chinese" />
         <Appbar.Action icon="translate" onPress={() => navigation.navigate('CharacterBrowser')} />
+        <Appbar.Action icon="tag-multiple" onPress={() => navigation.navigate('TagManagement')} />
         <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
       </Appbar.Header>
 

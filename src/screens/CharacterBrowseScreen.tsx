@@ -94,11 +94,6 @@ export default function CharacterBrowseScreen() {
   const [helpVisible, setHelpVisible] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagCharacters, setTagCharacters] = useState<string[]>([]);
-  const [characterTags, setCharacterTags] = useState<Map<string, Tag[]>>(new Map());
-  const [tagModalVisible, setTagModalVisible] = useState(false);
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
-
-  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
   // Load HSK words from SQLite
   const [hskWords, setHskWords] = useState<Record<number, HSKWord[]>>({
@@ -143,56 +138,35 @@ export default function CharacterBrowseScreen() {
     setTags(allTags);
   }, []);
 
-  const loadVocabularyTags = useCallback(async (vocabularyIds: string[]) => {
-    const tagMap = new Map<string, Tag[]>();
-    for (const id of vocabularyIds) {
-      const itemTags = await CharacterRecognitionService.getVocabularyTags(id);
-      tagMap.set(id, itemTags);
-    }
-    setCharacterTags(tagMap);
-  }, []);
-
   const loadTagVocabulary = useCallback(async (tagId: number) => {
     setLoading(true);
     
     try {
-      // Find the tag name to check if it's an HSK tag
-      const tag = tags.find(t => t.id === tagId);
-      const hskMatch = tag?.name.match(/^HSK(\d)$/);
-      
+
       let vocabularyIds: string[];
-      if (hskMatch) {
-        // Use hsk_level column for HSK tags (more reliable)
-        const level = parseInt(hskMatch[1], 10);
-        vocabularyIds = await CharacterRecognitionService.getVocabularyByHSKLevel(level);
-        console.log(`[TagFilter] HSK${level}: loaded ${vocabularyIds.length} items`);
-      } else {
-        // Use vocabulary_tags table for other tags
-        vocabularyIds = await CharacterRecognitionService.getVocabularyByTag(tagId);
-        console.log(`[TagFilter] Tag ${tagId}: loaded ${vocabularyIds.length} items`);
-      }
-      
+
+      // Use vocabulary_tags table for tags
+      vocabularyIds = await CharacterRecognitionService.getVocabularyByTag(tagId);
+      console.log(`[TagFilter] Tag ${tagId}: loaded ${vocabularyIds.length} items`);
+
       setTagCharacters(vocabularyIds);
       
       // Load known status for vocabulary items
       if (vocabularyIds.length > 0) {
         const map = await CharacterRecognitionService.getKnownStatusBatch(vocabularyIds);
         setKnownMap(map);
-        // Load tags for vocabulary
-        await loadVocabularyTags(vocabularyIds);
+
       } else {
         setKnownMap(new Map());
-        setCharacterTags(new Map());
       }
     } catch (error) {
       console.error('[TagFilter] Error loading tag vocabulary:', error);
       setTagCharacters([]);
       setKnownMap(new Map());
-      setCharacterTags(new Map());
     } finally {
       setLoading(false);
     }
-  }, [loadVocabularyTags, tags]);
+  }, [tags]);
 
   useFocusEffect(
     useCallback(() => {
@@ -345,14 +319,6 @@ export default function CharacterBrowseScreen() {
           {renderFilterTab('known', `Known (${stats.known})`)}
           {renderFilterTab('unknown', `Unknown (${stats.unknown})`)}
         </View>
-        <Button
-          mode="contained"
-          onPress={() => navigation.navigate('TagManagement')}
-          compact
-          style={styles.tagsButton}
-        >
-          Tags
-        </Button>
         <IconButton
           icon="help-circle"
           size={24}
@@ -441,47 +407,6 @@ export default function CharacterBrowseScreen() {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setHelpVisible(false)}>Got it</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      {/* Tag Management Dialog */}
-      <Portal>
-        <Dialog visible={tagModalVisible} onDismiss={() => setTagModalVisible(false)}>
-          <Dialog.Title>
-            {selectedCharacter ? `Tags for "${selectedCharacter}"` : 'Character Tags'}
-          </Dialog.Title>
-          <Dialog.Content>
-            <View style={styles.tagModalButtons}>
-              <Button
-                mode="outlined"
-                icon="book-open"
-                onPress={() => {
-                  if (selectedCharacter) {
-                    setLookupWord(selectedCharacter);
-                    setLookupVisible(true);
-                  }
-                  setTagModalVisible(false);
-                }}
-                style={styles.tagModalButton}
-              >
-                View Details
-              </Button>
-              <Button
-                mode="outlined"
-                icon="tag"
-                onPress={() => {
-                  setTagModalVisible(false);
-                  navigation.navigate('TagManagement');
-                }}
-                style={styles.tagModalButton}
-              >
-                Manage Tags
-              </Button>
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setTagModalVisible(false)}>Close</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -773,9 +698,6 @@ const styles = StyleSheet.create({
     height: 14,
     minWidth: 16,
   },
-  tagsButton: {
-    marginRight: 8,
-  },
   tagChip: {
     marginRight: 4,
   },
@@ -793,49 +715,5 @@ const styles = StyleSheet.create({
   tagChipPlaceholder: {
     height: 14,
     minWidth: 16,
-  },
-  manageTagsButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  manageTagsButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tagModalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-  },
-  tagModalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  tagModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  tagModalButton: {
-    alignItems: 'center',
-    padding: 12,
-  },
-  tagModalButtonIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  tagModalButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
   },
 });

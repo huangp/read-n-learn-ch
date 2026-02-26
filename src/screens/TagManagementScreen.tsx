@@ -1,15 +1,23 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
   FlatList,
-  Alert,
   useWindowDimensions,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import {
+  Appbar,
+  Text,
+  TextInput,
+  Button,
+  List,
+  Dialog,
+  Portal,
+  Snackbar,
+  IconButton,
+  TouchableRipple,
+} from 'react-native-paper';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import CharacterRecognitionService, { Tag } from '../services/characterRecognition';
 
 const TAG_COLORS = [
@@ -18,6 +26,7 @@ const TAG_COLORS = [
 ];
 
 export default function TagManagementScreen() {
+  const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
 
@@ -27,6 +36,10 @@ export default function TagManagementScreen() {
   const [selectedColor, setSelectedColor] = useState(TAG_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogTag, setDialogTag] = useState<Tag | null>(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const loadTags = useCallback(async () => {
     const allTags = await CharacterRecognitionService.getAllTags();
@@ -39,16 +52,21 @@ export default function TagManagementScreen() {
     }, [loadTags])
   );
 
+  const showError = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
   const handleCreateTag = async () => {
     if (!newTagName.trim()) {
-      Alert.alert('Error', 'Please enter a tag name');
+      showError('Please enter a tag name');
       return;
     }
 
     const name = newTagName.trim();
     const existing = tags.find(t => t.name.toLowerCase() === name.toLowerCase());
     if (existing) {
-      Alert.alert('Error', 'A tag with this name already exists');
+      showError('A tag with this name already exists');
       return;
     }
 
@@ -65,36 +83,32 @@ export default function TagManagementScreen() {
       setIsCreating(false);
       loadTags();
     } else {
-      Alert.alert('Error', 'Failed to create tag');
+      showError('Failed to create tag');
     }
   };
 
-  const handleDeleteTag = (tag: Tag) => {
-    Alert.alert(
-      'Delete Tag',
-      `Are you sure you want to delete "${tag.name}"? This will remove the tag from all characters.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await CharacterRecognitionService.deleteTag(tag.id);
-            if (success) {
-              loadTags();
-            } else {
-              Alert.alert('Error', 'Failed to delete tag');
-            }
-          },
-        },
-      ]
-    );
+  const confirmDeleteTag = (tag: Tag) => {
+    setDialogTag(tag);
+    setDialogVisible(true);
+  };
+
+  const handleDeleteTag = async () => {
+    if (!dialogTag) return;
+    
+    const success = await CharacterRecognitionService.deleteTag(dialogTag.id);
+    if (success) {
+      loadTags();
+    } else {
+      showError('Failed to delete tag');
+    }
+    setDialogVisible(false);
+    setDialogTag(null);
   };
 
   const renderColorPicker = () => (
     <View style={styles.colorPicker}>
       {TAG_COLORS.map((color) => (
-        <TouchableOpacity
+        <TouchableRipple
           key={color}
           style={[
             styles.colorOption,
@@ -102,7 +116,9 @@ export default function TagManagementScreen() {
             selectedColor === color && styles.colorOptionSelected,
           ]}
           onPress={() => setSelectedColor(color)}
-        />
+        >
+          <View style={styles.colorOptionInner} />
+        </TouchableRipple>
       ))}
     </View>
   );
@@ -129,58 +145,65 @@ export default function TagManagementScreen() {
       {renderColorPicker()}
       
       <View style={styles.formButtons}>
-        <TouchableOpacity
-          style={styles.cancelButton}
+        <Button
+          mode="outlined"
           onPress={() => {
             setIsCreating(false);
             setNewTagName('');
             setNewTagDescription('');
             setSelectedColor(TAG_COLORS[0]);
           }}
+          style={styles.cancelButton}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.createButton}
+          Cancel
+        </Button>
+        <Button
+          mode="contained"
           onPress={handleCreateTag}
+          style={styles.createButton}
+          buttonColor="#34C759"
         >
-          <Text style={styles.createButtonText}>Create Tag</Text>
-        </TouchableOpacity>
+          Create Tag
+        </Button>
       </View>
     </View>
   );
 
   const renderTag = ({ item }: { item: Tag }) => (
-    <View style={styles.tagItem}>
-      <View style={styles.tagInfo}>
+    <List.Item
+      title={item.name}
+      description={item.description}
+      left={() => (
         <View style={[styles.tagColor, { backgroundColor: item.color || '#007AFF' }]} />
-        <View style={styles.tagTextContainer}>
-          <Text style={styles.tagName}>{item.name}</Text>
-          {item.description && (
-            <Text style={styles.tagDescription}>{item.description}</Text>
-          )}
-        </View>
-      </View>
-      
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteTag(item)}
-      >
-        <Text style={styles.deleteButtonText}>🗑</Text>
-      </TouchableOpacity>
-    </View>
+      )}
+      right={() => (
+        <IconButton
+          icon="delete"
+          size={20}
+          onPress={() => confirmDeleteTag(item)}
+        />
+      )}
+      style={styles.tagItem}
+    />
   );
 
   return (
     <View style={styles.container}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
+        <Appbar.Content title="Tag Management" />
+      </Appbar.Header>
+      
       <View style={[styles.content, isTablet && styles.contentTablet]}>
         {!isCreating ? (
-          <TouchableOpacity
-            style={styles.addButton}
+          <Button
+            mode="contained"
             onPress={() => setIsCreating(true)}
+            style={styles.addButton}
+            icon="plus"
           >
-            <Text style={styles.addButtonText}>+ Create New Tag</Text>
-          </TouchableOpacity>
+            Create New Tag
+          </Button>
         ) : (
           renderCreateForm()
         )}
@@ -200,6 +223,27 @@ export default function TagManagementScreen() {
           }
         />
       </View>
+      
+      <Portal>
+        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
+          <Dialog.Title>Delete Tag</Dialog.Title>
+          <Dialog.Content>
+            <Text>Are you sure you want to delete "{dialogTag?.name}"? This action cannot be undone.</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setDialogVisible(false)}>Cancel</Button>
+            <Button onPress={handleDeleteTag} textColor="#FF3B30">Delete</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+      
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
@@ -220,41 +264,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   addButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
     marginBottom: 20,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   createForm: {
     backgroundColor: '#fff',
     padding: 16,
     borderRadius: 12,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
     marginBottom: 12,
-    backgroundColor: '#FAFAFA',
   },
   descriptionInput: {
     height: 80,
-    textAlignVertical: 'top',
   },
   colorLabel: {
     fontSize: 14,
@@ -277,33 +300,19 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#333',
   },
+  colorOptionInner: {
+    flex: 1,
+    borderRadius: 18,
+  },
   formButtons: {
     flexDirection: 'row',
     gap: 12,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F0F0F0',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
   },
   createButton: {
     flex: 2,
-    backgroundColor: '#34C759',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  createButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   sectionTitle: {
     fontSize: 18,
@@ -315,49 +324,14 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   tagItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tagInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    marginBottom: 4,
   },
   tagColor: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    marginRight: 12,
-  },
-  tagTextContainer: {
-    flex: 1,
-  },
-  tagName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  tagDescription: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 2,
-  },
-  deleteButton: {
-    padding: 8,
     marginLeft: 8,
-  },
-  deleteButtonText: {
-    fontSize: 18,
+    alignSelf: 'center',
   },
   emptyContainer: {
     paddingVertical: 40,
