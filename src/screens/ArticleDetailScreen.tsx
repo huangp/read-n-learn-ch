@@ -1,15 +1,27 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   Alert,
   useWindowDimensions,
   Dimensions,
   ScrollView,
 } from 'react-native';
+import {
+  Text,
+  Surface,
+  Card,
+  Appbar,
+  Menu,
+  IconButton,
+  FAB,
+  Portal,
+  Modal,
+  ActivityIndicator,
+  Divider,
+  TouchableRipple,
+} from 'react-native-paper';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Article, RootStackParamList, ReadingProgress, SegmentedWord } from '../types';
@@ -62,6 +74,9 @@ export default function ArticleDetailScreen() {
   // Article character stats
   const [distinctCharCount, setDistinctCharCount] = useState(0);
   const [unknownCharCount, setUnknownCharCount] = useState(0);
+
+  // Menu state
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     loadArticle();
@@ -127,17 +142,6 @@ export default function ArticleDetailScreen() {
         setDistinctCharCount(meta.uniqueChars);
         setUnknownCharCount(meta.unknownChars);
 
-        // Set up navigation header with menu
-        navigation.setOptions({
-          title: data.title || 'Article',
-          headerRight: () => (
-            <ArticleMenu 
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ),
-        });
-        
         // Load saved reading progress
         const savedProgress = await StorageService.getReadingProgress(articleId);
         if (savedProgress) {
@@ -273,6 +277,17 @@ export default function ArticleDetailScreen() {
     setModalVisible(true);
   };
 
+  // menu items handlers
+  const onPressEdit = useCallback(() => {
+    setMenuVisible(false);
+    handleEdit();
+  }, [handleEdit]);
+
+  const onPressDelete = useCallback(() => {
+    setMenuVisible(false);
+    handleDelete();
+  }, [handleDelete]);
+
   const isLastPage = currentPage === totalPages - 1;
   const showCompleteButton = isLastPage && !hasCompleted;
 
@@ -334,7 +349,7 @@ export default function ArticleDetailScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text>Loading...</Text>
+        <ActivityIndicator size="large" />
       </View>
     );
   }
@@ -342,45 +357,69 @@ export default function ArticleDetailScreen() {
   if (!article) {
     return (
       <View style={styles.container}>
-        <Text>Article not found</Text>
+        <Text variant="bodyLarge">Article not found</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{article.title || 'Untitled'}</Text>
-        <View style={styles.metaContainer}>
-          <Text style={styles.metaText}>
-            {article.wordCount} characters
-          </Text>
-          {distinctCharCount > 0 && (
-            <>
-              <Text style={styles.metaText}> • </Text>
-              <Text style={styles.metaText}>
-                {distinctCharCount} unique
-              </Text>
-              <Text style={styles.metaText}> • </Text>
-              <Text style={[styles.metaText, unknownCharCount > 0 && styles.metaTextHighlight]}>
-                {unknownCharCount} unknown
-              </Text>
-            </>
+      {/* Paper Appbar Header */}
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
+        <Appbar.Content 
+          title={article.title || 'Article'} 
+          subtitle={needsPagination ? `Page ${currentPage + 1} of ${totalPages}` : undefined}
+        />
+        <Menu
+          visible={menuVisible}
+          onDismiss={() => setMenuVisible(false)}
+          anchor={
+            <Appbar.Action 
+              icon="dots-vertical" 
+              onPress={() => setMenuVisible(true)} 
+            />
+          }
+        >
+          <Menu.Item 
+            onPress={onPressEdit}
+            title="Edit" 
+            leadingIcon="pencil" 
+          />
+          <Menu.Item 
+            onPress={onPressDelete}
+            title="Delete" 
+            leadingIcon="delete" 
+          />
+        </Menu>
+      </Appbar.Header>
+
+      {/* Header Info Card */}
+      <Card style={styles.headerCard}>
+        <Card.Content>
+          <Text variant="titleLarge" style={styles.title}>{article.title || 'Untitled'}</Text>
+          <View style={styles.metaContainer}>
+            <Text variant="bodyMedium" style={styles.metaText}>
+              {article.wordCount} characters
+            </Text>
+            {distinctCharCount > 0 && (
+              <>
+                <Text variant="bodyMedium" style={styles.metaText}> • </Text>
+                <Text variant="bodyMedium" style={styles.metaText}>
+                  {distinctCharCount} unique
+                </Text>
+                <Text variant="bodyMedium" style={styles.metaText}> • </Text>
+                <Text variant="bodyMedium" style={[styles.metaText, unknownCharCount > 0 && styles.metaTextHighlight]}>
+                  {unknownCharCount} unknown
+                </Text>
+              </>
+            )}
+          </View>
+          {article.source && (
+            <Text variant="bodySmall" style={styles.source}>Source: {article.source}</Text>
           )}
-          {needsPagination && (
-            <>
-              <Text style={styles.metaText}> • </Text>
-              <Text style={styles.metaText}>
-                Page {currentPage + 1} of {totalPages}
-              </Text>
-            </>
-          )}
-        </View>
-        {article.source && (
-          <Text style={styles.source}>Source: {article.source}</Text>
-        )}
-      </View>
+        </Card.Content>
+      </Card>
 
       {/* Content */}
       <View style={styles.contentWrapper}>
@@ -403,29 +442,25 @@ export default function ArticleDetailScreen() {
           />
         ) : (
           <ScrollView style={styles.singlePageContainer} contentContainerStyle={styles.singlePageContent}>
-            <View style={styles.pageContent}>
-              {article?.segments && article.segments.length > 0 ? (
-                <SegmentedText
-                  segments={article.segments}
-                  content={article.content}
-                  onWordPress={handleWordPress}
-                  fontSize={FONT_SIZE}
-                  lineHeight={LINE_HEIGHT}
-                />
-              ) : (
-                <Text style={styles.contentText}>{article.content}</Text>
-              )}
-            </View>
+            <Card style={styles.pageContent}>
+              <Card.Content>
+                {article?.segments && article.segments.length > 0 ? (
+                  <SegmentedText
+                    segments={article.segments}
+                    content={article.content}
+                    onWordPress={handleWordPress}
+                    fontSize={FONT_SIZE}
+                    lineHeight={LINE_HEIGHT}
+                  />
+                ) : (
+                  <Text variant="bodyLarge" style={styles.contentText}>{article.content}</Text>
+                )}
+              </Card.Content>
+            </Card>
 
             {/* Stats & Complete Reading - inline below content */}
             <View style={styles.bottomSection}>
               <ReadingStatsPanel articleId={articleId} sessionId={currentSessionId} />
-              {showCompleteButton && (
-                <CompleteReadingButton
-                  onComplete={handleCompleteReading}
-                  disabled={false}
-                />
-              )}
             </View>
           </ScrollView>
         )}
@@ -441,6 +476,15 @@ export default function ArticleDetailScreen() {
         />
       )}
 
+      {/* Complete Reading FAB */}
+      {showCompleteButton && (
+        <FAB
+          icon="check"
+          label="Complete"
+          onPress={handleCompleteReading}
+          style={styles.fab}
+        />
+      )}
 
       {/* Word Lookup Modal */}
       <WordLookupModal
@@ -460,28 +504,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  header: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    margin: 20,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  headerCard: {
+    margin: 16,
+    marginTop: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
     marginBottom: 12,
     lineHeight: 32,
   },
   metaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   metaText: {
     fontSize: 14,
@@ -492,8 +526,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   source: {
-    fontSize: 14,
-    color: '#666',
     marginTop: 8,
     fontStyle: 'italic',
   },
@@ -502,38 +534,36 @@ const styles = StyleSheet.create({
   },
   singlePageContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   singlePageContent: {
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra space for FAB
   },
   pageContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   pageScrollView: {
     flex: 1,
   },
   pageScrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra space for FAB
   },
   pageContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
   },
   contentText: {
     fontSize: FONT_SIZE,
     lineHeight: LINE_HEIGHT,
-    color: '#333',
   },
   bottomSection: {
     marginTop: 16,
     gap: 8,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 });

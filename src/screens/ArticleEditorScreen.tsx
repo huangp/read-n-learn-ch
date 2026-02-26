@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   ScrollView,
-  TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
-  ActivityIndicator,
-  Modal,
 } from 'react-native';
+import {
+  Text,
+  TextInput,
+  Button,
+  Portal,
+  Modal,
+  ActivityIndicator,
+  Dialog,
+  List,
+  Snackbar,
+} from 'react-native-paper';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, ArticleFormData } from '../types';
@@ -37,6 +42,9 @@ export default function ArticleEditorScreen() {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [importDialogVisible, setImportDialogVisible] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -57,9 +65,14 @@ export default function ArticleEditorScreen() {
     }
   };
 
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
   const handleSave = async () => {
     if (!content.trim()) {
-      Alert.alert('Error', 'Please enter some content');
+      showSnackbar('Please enter some content');
       return;
     }
 
@@ -74,7 +87,7 @@ export default function ArticleEditorScreen() {
       await StorageService.saveArticle(formData, articleId);
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save article');
+      showSnackbar('Failed to save article');
     } finally {
       setSaving(false);
     }
@@ -91,12 +104,12 @@ export default function ArticleEditorScreen() {
         setContent(result.text);
         if (result.title) setTitle(result.title);
         if (result.source) setSource(result.source);
-        Alert.alert('Success', 'Document imported successfully!');
+        showSnackbar('Document imported successfully!');
       } else if (result.error && result.error !== 'User cancelled') {
-        Alert.alert('Import Error', result.error);
+        showSnackbar(`Import Error: ${result.error}`);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to import document');
+      showSnackbar('Failed to import document');
     } finally {
       setImporting(false);
     }
@@ -131,24 +144,22 @@ export default function ArticleEditorScreen() {
         if (firstResult.title) setTitle(firstResult.title);
         if (firstResult.source) setSource(`Gallery Import (${result.results.length} images)`);
         
-        Alert.alert(
-          'Success', 
+        showSnackbar(
           `${result.results.length} image${result.results.length > 1 ? 's' : ''} imported successfully!`
         );
       } else if (result.error && result.error !== 'User cancelled') {
         // Show detailed error with failed image names
         if (result.failedImages && result.failedImages.length > 0) {
           const failedList = result.failedImages.join(', ');
-          Alert.alert(
-            'Import Error',
-            `${result.error}\n\nFailed images: ${failedList}\n\nPlease try again with different images.`
+          showSnackbar(
+            `${result.error}. Failed images: ${failedList}. Please try again with different images.`
           );
         } else {
-          Alert.alert('Import Error', result.error);
+          showSnackbar(`Import Error: ${result.error}`);
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to import images');
+      showSnackbar('Failed to import images');
     } finally {
       setImporting(false);
       setProcessingProgress({ current: 0, total: 0 });
@@ -172,16 +183,7 @@ export default function ArticleEditorScreen() {
   };
 
   const showImportOptions = () => {
-    Alert.alert(
-      'Import File',
-      'Choose the type of file to import',
-      [
-        { text: 'Document (PDF, DOCX, TXT)', onPress: handleImportDocument },
-        { text: 'Image (with text)', onPress: handleImportImage },
-        { text: 'Camera Scan', onPress: handleCameraScan },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setImportDialogVisible(true);
   };
 
   return (
@@ -199,86 +201,145 @@ export default function ArticleEditorScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Title</Text>
           <TextInput
-            style={styles.titleInput}
+            label="Title"
             placeholder="Enter article title (optional)"
             value={title}
             onChangeText={setTitle}
             maxLength={200}
+            mode="outlined"
+            style={styles.titleInput}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Source</Text>
           <TextInput
-            style={styles.sourceInput}
+            label="Source"
             placeholder="Where did this article come from? (optional)"
             value={source}
             onChangeText={setSource}
             maxLength={500}
+            mode="outlined"
+            style={styles.sourceInput}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Content</Text>
-            <Text style={styles.charCount}>
-              {chineseCharCount} Chinese chars • {charCount} total
-            </Text>
-          </View>
           <TextInput
-            style={styles.contentInput}
+            label="Content"
             placeholder="Paste or type Chinese text here..."
             value={content}
             onChangeText={setContent}
             multiline
-            textAlignVertical="top"
+            mode="outlined"
+            style={styles.contentInput}
             autoFocus={!isEditing}
+            right={<TextInput.Affix text={`${chineseCharCount} chars`} />}
           />
         </View>
       </ScrollView>
 
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.cancelButton}
+      <View style={[styles.bottomBar, isTablet ? styles.bottomBarRow : styles.bottomBarColumn]}>
+        <Button
+          mode="outlined"
           onPress={() => navigation.goBack()}
           disabled={saving || importing}
+          style={styles.bottomButton}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.importButton, importing && styles.saveButtonDisabled]}
+          Cancel
+        </Button>
+        <Button
+          mode="contained-tonal"
           onPress={showImportOptions}
           disabled={saving || importing}
+          loading={importing && processingProgress.total === 0}
+          icon="import"
+          style={styles.bottomButton}
         >
-          {importing ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.importButtonText}>Import</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          Import
+        </Button>
+        <Button
+          mode="contained"
           onPress={handleSave}
           disabled={saving || importing}
+          loading={saving}
+          icon="content-save"
+          style={[styles.bottomButton, styles.saveButton]}
         >
-          <Text style={styles.saveButtonText}>
-            {saving ? 'Saving...' : isEditing ? 'Update' : 'Save'}
-          </Text>
-        </TouchableOpacity>
+          {isEditing ? 'Update' : 'Save'}
+        </Button>
       </View>
 
+      {/* Import Options Dialog */}
+      <Portal>
+        <Dialog visible={importDialogVisible} onDismiss={() => setImportDialogVisible(false)}>
+          <Dialog.Title>Import File</Dialog.Title>
+          <Dialog.Content>
+            <List.Item
+              title="Document"
+              description="PDF, DOCX, TXT files"
+              left={props => <List.Icon {...props} icon="file-document" />}
+              onPress={() => {
+                setImportDialogVisible(false);
+                handleImportDocument();
+              }}
+            />
+            <List.Item
+              title="Image"
+              description="Photos with text (OCR)"
+              left={props => <List.Icon {...props} icon="image" />}
+              onPress={() => {
+                setImportDialogVisible(false);
+                handleImportImage();
+              }}
+            />
+            <List.Item
+              title="Camera Scan"
+              description="Scan text with camera"
+              left={props => <List.Icon {...props} icon="camera" />}
+              onPress={() => {
+                setImportDialogVisible(false);
+                handleCameraScan();
+              }}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setImportDialogVisible(false)}>Cancel</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
       {/* Processing Overlay */}
-      <Modal visible={importing && processingProgress.total > 0} transparent={true} animationType="fade">
-        <View style={styles.processingOverlay}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.processingText}>
+      <Portal>
+        <Modal
+          visible={importing && processingProgress.total > 0}
+          dismissable={false}
+          contentContainerStyle={styles.processingModal}
+        >
+          <ActivityIndicator size="large" />
+          <Text variant="titleMedium" style={styles.processingText}>
             Processing image {processingProgress.current} of {processingProgress.total}...
           </Text>
-          <Text style={styles.processingSubtext}>Extracting text with OCR</Text>
-        </View>
-      </Modal>
+          <Text variant="bodyMedium" style={styles.processingSubtext}>
+            Extracting text with OCR
+          </Text>
+        </Modal>
+      </Portal>
+
+      {/* Snackbar for messages */}
+      <Portal>
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={3000}
+          action={{
+            label: 'Dismiss',
+            onPress: () => setSnackbarVisible(false),
+          }}
+        >
+          {snackbarMessage}
+        </Snackbar>
+      </Portal>
     </KeyboardAvoidingView>
   );
 }
@@ -292,7 +353,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 20,
+    padding: 16,
   },
   contentContainerTablet: {
     paddingHorizontal: 40,
@@ -301,116 +362,52 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  charCount: {
-    fontSize: 12,
-    color: '#666',
+    marginBottom: 16,
   },
   titleInput: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
     fontSize: 18,
-    fontWeight: '500',
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   sourceInput: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
     fontSize: 16,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   contentInput: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
-    fontSize: 18,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
     minHeight: 300,
+    fontSize: 18,
     lineHeight: 28,
   },
   bottomBar: {
-    flexDirection: 'row',
     padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     gap: 12,
   },
-  cancelButton: {
+  bottomBarRow: {
+    flexDirection: 'row',
+  },
+  bottomBarColumn: {
+    flexDirection: 'column',
+  },
+  bottomButton: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  importButton: {
-    flex: 1,
-    backgroundColor: '#34C759',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  importButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   saveButton: {
-    flex: 2,
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
+    flex: 1.5,
   },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  processingOverlay: {
-    flex: 1,
+  processingModal: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+    padding: 32,
+    margin: 32,
+    borderRadius: 12,
     alignItems: 'center',
   },
   processingText: {
     color: '#fff',
-    fontSize: 18,
-    marginTop: 20,
-    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
   },
   processingSubtext: {
-    color: '#999',
-    fontSize: 14,
+    color: '#aaa',
     marginTop: 8,
   },
 });
