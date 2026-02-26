@@ -1,17 +1,26 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Modal,
   Image,
   ScrollView,
-  ActivityIndicator,
   Dimensions,
   SafeAreaView,
 } from 'react-native';
+import {
+  Text,
+  IconButton,
+  FAB,
+  Portal,
+  Modal,
+  Appbar,
+  Button,
+  ActivityIndicator,
+  ProgressBar,
+  Card,
+  Surface,
+  useTheme,
+} from 'react-native-paper';
 import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -36,31 +45,48 @@ export default function CameraScreen() {
   const [previewImage, setPreviewImage] = useState<CapturedImage | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const cameraRef = useRef<CameraView>(null);
+
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
 
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Camera'>>();
   const { onCapture } = route.params;
+  const theme = useTheme();
 
   if (!permission) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator animating={true} size="large" />
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.permissionText}>We need your permission to use the camera</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+      <Surface style={styles.permissionContainer}>
+        <Text variant="bodyLarge" style={styles.permissionText}>
+          We need your permission to use the camera
+        </Text>
+        <Button 
+          mode="contained" 
+          onPress={requestPermission}
+          style={styles.permissionButton}
+        >
+          Grant Permission
+        </Button>
+        <Button 
+          mode="text" 
+          onPress={() => navigation.goBack()}
+        >
+          Cancel
+        </Button>
+      </Surface>
     );
   }
 
@@ -84,7 +110,7 @@ export default function CameraScreen() {
 
   const takePicture = async () => {
     if (capturedImages.length >= MAX_IMAGES) {
-      Alert.alert('Limit Reached', `You can capture up to ${MAX_IMAGES} images.`);
+      showSnackbar(`You can capture up to ${MAX_IMAGES} images.`);
       return;
     }
 
@@ -105,7 +131,7 @@ export default function CameraScreen() {
         }
       } catch (error) {
         console.error('Error taking picture:', error);
-        Alert.alert('Error', 'Failed to capture image');
+        showSnackbar('Failed to capture image');
       }
     }
   };
@@ -146,7 +172,7 @@ export default function CameraScreen() {
       }
 
       if (allTexts.length === 0) {
-        Alert.alert('No Text Found', 'Could not extract text from any of the captured images.');
+        showSnackbar('Could not extract text from any of the captured images.');
         setIsProcessing(false);
         return;
       }
@@ -168,7 +194,7 @@ export default function CameraScreen() {
       navigation.goBack();
     } catch (error) {
       console.error('Error processing images:', error);
-      Alert.alert('Error', 'Failed to process images');
+      showSnackbar('Failed to process images');
     } finally {
       setIsProcessing(false);
     }
@@ -198,7 +224,7 @@ export default function CameraScreen() {
         contentContainerStyle={styles.thumbnailScroll}
       >
         {capturedImages.map((image, index) => (
-          <TouchableOpacity
+          <Card
             key={image.id}
             style={[
               styles.thumbnail,
@@ -206,24 +232,24 @@ export default function CameraScreen() {
             ]}
             onPress={() => setPreviewImage(image)}
           >
-            <Image source={{ uri: image.uri }} style={styles.thumbnailImage} />
+            <Card.Cover source={{ uri: image.uri }} style={styles.thumbnailImage} />
             <View style={styles.thumbnailOverlay}>
               <Text style={styles.thumbnailNumber}>{index + 1}</Text>
             </View>
-          </TouchableOpacity>
+          </Card>
         ))}
       </ScrollView>
-      
+
       {capturedImages.length > 0 && (
-        <TouchableOpacity
-          style={styles.doneButton}
+        <Button
+          mode="contained"
           onPress={processImages}
           disabled={isProcessing}
+          icon="check"
+          style={styles.doneButton}
         >
-          <Text style={styles.doneButtonText}>
-            Done ({capturedImages.length})
-          </Text>
-        </TouchableOpacity>
+          Done ({capturedImages.length})
+        </Button>
       )}
     </View>
   );
@@ -238,39 +264,53 @@ export default function CameraScreen() {
       >
         {/* Top Controls */}
         <View style={styles.topControls}>
-          <TouchableOpacity style={styles.controlButton} onPress={handleBack}>
-            <Text style={styles.controlButtonText}>✕</Text>
-          </TouchableOpacity>
+          <IconButton
+            icon="close"
+            iconColor="#fff"
+            size={24}
+            onPress={handleBack}
+            style={styles.controlButton}
+          />
 
           <View style={styles.topRightControls}>
-            <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
-              <Text style={styles.controlButtonText}>{getFlashIcon()}</Text>
-            </TouchableOpacity>
+            <IconButton
+              icon={flash === 'off' ? 'flash-off' : flash === 'on' ? 'flash' : 'flash-auto'}
+              iconColor="#fff"
+              size={24}
+              onPress={toggleFlash}
+              style={styles.controlButton}
+            />
             
-            <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-              <Text style={styles.controlButtonText}>↻</Text>
-            </TouchableOpacity>
+            <IconButton
+              icon="camera-flip"
+              iconColor="#fff"
+              size={24}
+              onPress={toggleCameraFacing}
+              style={styles.controlButton}
+            />
           </View>
         </View>
 
         {/* Bottom Controls */}
         <View style={styles.bottomControls}>
           <View style={styles.captureButtonContainer}>
-            <TouchableOpacity
-              style={styles.captureButton}
+            <FAB
+              icon="camera"
+              size="large"
               onPress={takePicture}
               disabled={capturedImages.length >= MAX_IMAGES}
-            >
-              <View style={[
-                styles.captureButtonInner,
-                capturedImages.length >= MAX_IMAGES && styles.captureButtonDisabled,
-              ]} />
-            </TouchableOpacity>
+              style={[
+                styles.captureButton,
+                capturedImages.length >= MAX_IMAGES && { backgroundColor: theme.colors.surfaceDisabled }
+              ]}
+            />
           </View>
 
-          <Text style={styles.imageCount}>
-            {capturedImages.length} / {MAX_IMAGES}
-          </Text>
+          <Surface style={styles.imageCountSurface}>
+            <Text style={styles.imageCount}>
+              {capturedImages.length} / {MAX_IMAGES}
+            </Text>
+          </Surface>
         </View>
       </CameraView>
 
@@ -278,29 +318,25 @@ export default function CameraScreen() {
       {renderThumbnailStrip()}
 
       {/* Preview Modal */}
-      <Modal
-        visible={previewImage !== null}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setPreviewImage(null)}
-      >
-        <View style={styles.previewModal}>
-          <View style={styles.previewHeader}>
-            <TouchableOpacity onPress={() => setPreviewImage(null)}>
-              <Text style={styles.previewButtonText}>✕</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
+      <Portal>
+        <Modal
+          visible={previewImage !== null}
+          onDismiss={() => setPreviewImage(null)}
+          contentContainerStyle={styles.previewModal}
+        >
+          <Appbar.Header style={styles.previewHeader}>
+            <Appbar.BackAction onPress={() => setPreviewImage(null)} />
+            <Appbar.Content title="Preview" />
+            <Appbar.Action 
+              icon="delete" 
               onPress={() => {
                 if (previewImage) {
                   deleteImage(previewImage.id);
                   setPreviewImage(null);
                 }
               }}
-            >
-              <Text style={[styles.previewButtonText, styles.deleteButton]}>🗑</Text>
-            </TouchableOpacity>
-          </View>
+            />
+          </Appbar.Header>
 
           {previewImage && (
             <Image
@@ -309,19 +345,25 @@ export default function CameraScreen() {
               resizeMode="contain"
             />
           )}
-        </View>
-      </Modal>
+        </Modal>
+      </Portal>
 
       {/* Processing Overlay */}
-      <Modal visible={isProcessing} transparent={true} animationType="fade">
-        <View style={styles.processingOverlay}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.processingText}>
+      <Portal>
+        <Modal visible={isProcessing} dismissable={false} contentContainerStyle={styles.processingModal}>
+          <ActivityIndicator animating={true} size="large" />
+          <Text variant="titleMedium" style={styles.processingText}>
             Processing image {processingProgress.current} of {processingProgress.total}...
           </Text>
-          <Text style={styles.processingSubtext}>Extracting text with OCR</Text>
-        </View>
-      </Modal>
+          <ProgressBar
+            progress={processingProgress.total > 0 ? processingProgress.current / processingProgress.total : 0}
+            style={styles.progressBar}
+          />
+          <Text variant="bodyMedium" style={styles.processingSubtext}>
+            Extracting text with OCR
+          </Text>
+        </Modal>
+      </Portal>
     </SafeAreaView>
   );
 }
@@ -330,6 +372,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionText: {
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  permissionButton: {
+    marginBottom: 10,
   },
   camera: {
     flex: 1,
@@ -346,17 +401,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '600',
   },
   bottomControls: {
     position: 'absolute',
@@ -369,30 +414,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  captureButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#fff',
-  },
-  captureButtonDisabled: {
-    backgroundColor: '#999',
+  imageCountSurface: {
+    marginTop: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   imageCount: {
     color: '#fff',
     fontSize: 14,
-    marginTop: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
   },
   thumbnailContainer: {
     position: 'absolute',
@@ -412,13 +445,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     marginRight: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
   thumbnailSelected: {
     borderColor: '#007AFF',
+    borderWidth: 2,
   },
   thumbnailImage: {
     width: '100%',
@@ -441,82 +471,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   doneButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
     marginLeft: 10,
-  },
-  doneButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   previewModal: {
     flex: 1,
     backgroundColor: '#000',
+    margin: 0,
   },
   previewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-  },
-  previewButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    padding: 10,
-  },
-  deleteButton: {
-    color: '#ff3b30',
+    backgroundColor: 'transparent',
   },
   previewImage: {
     flex: 1,
     width: screenWidth,
     height: screenHeight - 150,
   },
-  processingOverlay: {
-    flex: 1,
+  processingModal: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+    padding: 32,
+    margin: 32,
+    borderRadius: 12,
     alignItems: 'center',
   },
   processingText: {
     color: '#fff',
-    fontSize: 18,
-    marginTop: 20,
-    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    marginVertical: 16,
   },
   processingSubtext: {
-    color: '#999',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  permissionText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 30,
-  },
-  permissionButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  permissionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
+    color: '#aaa',
   },
 });

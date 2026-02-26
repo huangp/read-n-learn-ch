@@ -1,14 +1,23 @@
-import React, { useState, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
-  TextInput,
   RefreshControl,
   useWindowDimensions,
 } from 'react-native';
+import {
+  Appbar,
+  Card,
+  Text,
+  FAB,
+  Searchbar,
+  Surface,
+  ActivityIndicator,
+  IconButton,
+  Icon,
+  useTheme,
+} from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Article, RootStackParamList } from '../types';
@@ -27,25 +36,6 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 16 }}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('CharacterBrowser')}
-          >
-            <Text style={{ fontSize: 16, color: '#007AFF' }}>Characters</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Settings')}
-          >
-            <Text style={{ fontSize: 16, color: '#007AFF' }}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-      ),
-    });
-  }, [navigation]);
 
   const loadArticles = async () => {
     try {
@@ -81,6 +71,8 @@ export default function HomeScreen() {
     }, [])
   );
 
+  const theme = useTheme();
+
   const renderArticle = ({ item }: { item: Article }) => {
     const meta = metaMap.get(item.id);
 
@@ -102,61 +94,73 @@ export default function HomeScreen() {
     }
 
     return (
-      <TouchableOpacity
-        style={[styles.articleCard, isTablet && styles.articleCardTablet]}
+      <Card
+        style={[styles.articleCard]}
         onPress={() => navigation.navigate('ArticleDetail', { articleId: item.id })}
+        mode="elevated"
       >
-        <Text style={styles.articleTitle} numberOfLines={2}>
-          {item.title || 'Untitled'}
-        </Text>
-        <Text style={styles.articlePreview} numberOfLines={2}>
-          {item.content.substring(0, 100)}...
-        </Text>
-        <View style={styles.articleMeta}>
-          <Text style={styles.metaText}>
-            {item.wordCount} chars
-          </Text>
-          {meta && (
-            <>
-              <Text style={styles.metaDot}> • </Text>
-              <Text style={styles.metaText}>
-                {meta.uniqueChars} unique
-              </Text>
-              {meta.unknownChars > 0 && (
-                <>
-                  <Text style={styles.metaDot}> • </Text>
-                  <Text style={styles.metaTextHighlight}>
-                    {meta.unknownChars} new
-                  </Text>
-                </>
-              )}
-            </>
-          )}
-          {hskLabel ? (
-            <>
-              <Text style={styles.metaDot}> • </Text>
-              <Text style={styles.metaTextHsk}>{hskLabel}</Text>
-            </>
-          ) : null}
-        </View>
-      </TouchableOpacity>
+        <Card.Content style={styles.cardContent}>
+          <View style={styles.contentWrapper}>
+            <Text variant="titleMedium" numberOfLines={2}>
+              {item.title || 'Untitled'}
+            </Text>
+            <Text variant="bodyLarge" numberOfLines={2} style={styles.articlePreview}>
+              {item.content.substring(0, 100)}...
+            </Text>
+          </View>
+          <View style={styles.metaContainer}>
+            <Icon source="format-size" size={14} color={theme.colors.onSurfaceVariant} />
+            <Text variant="bodySmall" style={styles.metaText}>{item.wordCount} chars</Text>
+            
+            {meta && (
+              <>
+                <Text variant="bodySmall" style={styles.separator}>•</Text>
+                <Text variant="bodySmall" style={styles.metaText}>{meta.uniqueChars} unique</Text>
+                
+                {meta.unknownChars > 0 && (
+                  <>
+                    <Text variant="bodySmall" style={styles.separator}>•</Text>
+                    <Text variant="bodySmall" style={[styles.metaText, styles.newText]}>{meta.unknownChars} new</Text>
+                  </>
+                )}
+              </>
+            )}
+            
+            {hskLabel && (
+              <>
+                <Text variant="bodySmall" style={styles.separator}>•</Text>
+                <Text variant="labelSmall" style={styles.hskText}>{hskLabel}</Text>
+              </>
+            )}
+          </View>
+        </Card.Content>
+      </Card>
     );
   };
 
-  const numColumns = isTablet ? 2 : 1;
+  const getNumColumns = (width: number) => {
+    if (width >= 900) return 4; // Large tablets
+    if (width >= 600) return 2; // Medium tablets
+    return 1; // Phones
+  };
+
+  const numColumns = getNumColumns(width);
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search articles..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-      </View>
+      <Appbar.Header>
+        <Appbar.Content title="Read and Learn Chinese" />
+        <Appbar.Action icon="translate" onPress={() => navigation.navigate('CharacterBrowser')} />
+        <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
+      </Appbar.Header>
+
+      <Searchbar
+        placeholder="Search articles..."
+        onChangeText={setSearchQuery}
+        value={searchQuery}
+        onSubmitEditing={handleSearch}
+        style={styles.searchbar}
+      />
 
       <FlatList
         data={articles}
@@ -169,20 +173,29 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {loading ? 'Loading...' : 'No articles yet.\nTap + to create one!'}
-            </Text>
-          </View>
+          <Surface style={styles.emptyContainer}>
+            {loading ? (
+              <ActivityIndicator animating={true} size="large" />
+            ) : (
+              <>
+                <IconButton icon="book-open-variant" size={64} iconColor="#ccc" />
+                <Text variant="titleMedium" style={styles.emptyText}>
+                  No articles yet
+                </Text>
+                <Text variant="bodyMedium" style={styles.emptySubtext}>
+                  Tap + to create one!
+                </Text>
+              </>
+            )}
+          </Surface>
         }
       />
 
-      <TouchableOpacity
+      <FAB
+        icon="plus"
         style={styles.fab}
         onPress={() => navigation.navigate('ArticleEditor', {})}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 }
@@ -192,103 +205,71 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  searchContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  searchInput: {
-    height: 44,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
+  searchbar: {
+    margin: 8,
   },
   listContainer: {
-    padding: 16,
+    flex: 1,
+    padding: 4,
   },
   articleCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    margin: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    margin: 4,
   },
-  articleCardTablet: {
-    maxWidth: '48%',
+  cardContent: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
-  articleTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+  contentWrapper: {
+    flex: 1,
   },
   articlePreview: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
+    marginTop: 2,
+    marginBottom: 2,
   },
-  articleMeta: {
+  metaContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 'auto',
   },
   metaText: {
-    fontSize: 12,
+    marginLeft: 2,
+  },
+  separator: {
+    marginHorizontal: 4,
     color: '#999',
   },
-  metaDot: {
-    fontSize: 12,
-    color: '#ccc',
-  },
-  metaTextHighlight: {
-    fontSize: 12,
+  newText: {
     color: '#FF9500',
-    fontWeight: '600',
+    fontWeight: '500',
   },
-  metaTextHsk: {
-    fontSize: 11,
+  hskText: {
     color: '#007AFF',
     fontWeight: '600',
   },
   fab: {
     position: 'absolute',
-    right: 24,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  fabText: {
-    fontSize: 32,
-    color: '#fff',
-    fontWeight: '300',
-    marginTop: -2,
+    right: 16,
+    bottom: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: 100,
+    margin: 16,
+    padding: 32,
+    borderRadius: 12,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#999',
     textAlign: 'center',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    textAlign: 'center',
+    color: '#999',
+    marginTop: 8,
   },
 });
