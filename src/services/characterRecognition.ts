@@ -169,7 +169,8 @@ class CharacterRecognitionService {
         ('beginner', 'Beginner level (HSK1)'),
         ('simple', 'Simple level (HSK1-2)'),
         ('advanced', 'Advanced level (HSK3-4)'),
-        ('expert', 'Expert level (HSK5-6)');
+        ('expert', 'Expert level (HSK5-6)'),
+        ('learning', 'Currently learning');
 
     `);
 
@@ -436,6 +437,16 @@ class CharacterRecognitionService {
       'INSERT INTO word_lookup_log (word, article_id, session_id, looked_up_at, character_count) VALUES (?, ?, ?, ?, ?)',
       [word, session.article_id, sessionId, now, chars.length]
     );
+
+    // Auto-tag word and characters as "learning" (async - don't block)
+    this.autoTagVocabularyAsLearning(word).catch(err => 
+      console.warn('[Learning] Failed to tag word:', word, err)
+    );
+    for (const char of chars) {
+      this.autoTagVocabularyAsLearning(char).catch(err => 
+        console.warn('[Learning] Failed to tag character:', char, err)
+      );
+    }
   }
 
   async completeReadingSession(sessionId: number): Promise<void> {
@@ -829,12 +840,20 @@ class CharacterRecognitionService {
           'UPDATE word_stats SET familiarity = ?, is_known = 0, last_reviewed_at = ? WHERE word = ?',
           [newFam, now, word]
         );
+        // Re-add "learning" tag since it's no longer known
+        this.autoTagVocabularyAsLearning(word).catch(err => 
+          console.warn('[Learning] Failed to re-tag word:', word, err)
+        );
         return false; // now unknown
       } else {
         // Mark as known: set to 5
         await this.db.runAsync(
           'UPDATE word_stats SET familiarity = 5, is_known = 1, last_reviewed_at = ? WHERE word = ?',
           [now, word]
+        );
+        // Remove "learning" tag since it's now known
+        this.removeLearningTag(word).catch(err => 
+          console.warn('[Learning] Failed to remove tag from word:', word, err)
         );
         return true; // now known
       }
@@ -844,6 +863,7 @@ class CharacterRecognitionService {
         'INSERT INTO word_stats (word, familiarity, is_known, first_seen_at, last_reviewed_at, total_exposures, character_count) VALUES (?, 5, 1, ?, ?, 0, ?)',
         [word, now, now, word.length]
       );
+      // Word is known, no "learning" tag needed
       return true; // now known
     }
   }
@@ -1020,6 +1040,32 @@ class CharacterRecognitionService {
       if (tag) {
         await this.addTagToVocabulary(vocabularyId, tag.id);
       }
+    }
+  }
+
+  /**
+   * Automatically tag vocabulary as "learning" when looked up.
+   * Called when a user looks up a word during reading.
+   */
+  async autoTagVocabularyAsLearning(vocabularyId: string): Promise<void> {
+    if (!this.db) return;
+
+    const tag = await this.getTagByName('learning');
+    if (tag) {
+      await this.addTagToVocabulary(vocabularyId, tag.id);
+    }
+  }
+
+  /**
+   * Remove the "learning" tag from vocabulary.
+   * Called when a word is marked as known (familiarity = 5).
+   */
+  async removeLearningTag(vocabularyId: string): Promise<void> {
+    if (!this.db) return;
+
+    const tag = await this.getTagByName('learning');
+    if (tag) {
+      await this.removeTagFromVocabulary(vocabularyId, tag.id);
     }
   }
 
