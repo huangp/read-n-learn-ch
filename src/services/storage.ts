@@ -131,8 +131,7 @@ export class StorageService {
       const lowerQuery = query.toLowerCase();
       return articles.filter(
         article =>
-          article.title.toLowerCase().includes(lowerQuery) ||
-          article.content.toLowerCase().includes(lowerQuery)
+          article.title.toLowerCase().includes(lowerQuery)
       );
     } catch (error) {
       console.error('Error searching articles:', error);

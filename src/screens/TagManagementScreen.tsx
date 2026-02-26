@@ -25,6 +25,10 @@ const TAG_COLORS = [
   '#5856D6', '#FF2D55', '#5AC8FA', '#FFCC00', '#8E8E93',
 ];
 
+/**
+ * Tag Management Screen. TODO may not need this.
+ * @constructor
+ */
 export default function TagManagementScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
