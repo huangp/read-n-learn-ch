@@ -36,12 +36,9 @@ import WordLookupModal from '../components/WordLookupModal';
 import CompleteReadingButton from '../components/CompleteReadingButton';
 import ReadingStatsPanel from '../components/ReadingStatsPanel';
 import ArticleMenu from '../components/ArticleMenu';
+import { getDefaultFontSize, getLineHeightForFontSize } from './SettingsScreen';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
-// Font settings (should match your app's settings)
-const FONT_SIZE = 18;
-const LINE_HEIGHT = 32;
 
 type ArticleDetailScreenRouteProp = RouteProp<RootStackParamList, 'ArticleDetail'>;
 type ArticleDetailScreenNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -77,6 +74,20 @@ export default function ArticleDetailScreen() {
 
   // Menu state
   const [menuVisible, setMenuVisible] = useState(false);
+  
+  // Font settings state
+  const [fontSize, setFontSize] = useState(18);
+  const [lineHeight, setLineHeight] = useState(32);
+
+  useEffect(() => {
+    // Load font size setting
+    const loadFontSettings = async () => {
+      const savedFontSize = await getDefaultFontSize();
+      setFontSize(savedFontSize);
+      setLineHeight(getLineHeightForFontSize(savedFontSize));
+    };
+    loadFontSettings();
+  }, []);
 
   useEffect(() => {
     loadArticle();
@@ -108,8 +119,8 @@ export default function ArticleDetailScreen() {
           data.content,
           screenWidth - 40, // Account for padding
           screenHeight,
-          FONT_SIZE,
-          LINE_HEIGHT
+          fontSize,
+          lineHeight
         );
         
         DebugService.log('ARTICLE_VIEW', 'Pagination calculated', {
@@ -322,8 +333,8 @@ export default function ArticleDetailScreen() {
                 segments={pageSegments}
                 content={item}
                 onWordPress={handleWordPress}
-                fontSize={FONT_SIZE}
-                lineHeight={LINE_HEIGHT}
+                fontSize={fontSize}
+                lineHeight={lineHeight}
               />
             ) : (
               <Text style={styles.contentText}>{item}</Text>
@@ -449,8 +460,8 @@ export default function ArticleDetailScreen() {
                     segments={article.segments}
                     content={article.content}
                     onWordPress={handleWordPress}
-                    fontSize={FONT_SIZE}
-                    lineHeight={LINE_HEIGHT}
+                    fontSize={fontSize}
+                    lineHeight={lineHeight}
                   />
                 ) : (
                   <Text variant="bodyLarge" style={styles.contentText}>{article.content}</Text>
@@ -553,8 +564,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   contentText: {
-    fontSize: FONT_SIZE,
-    lineHeight: LINE_HEIGHT,
+    fontSize: 18,
+    lineHeight: 32,
   },
   bottomSection: {
     marginTop: 16,

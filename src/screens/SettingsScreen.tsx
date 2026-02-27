@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   ScrollView,
+  View,
+  TouchableOpacity,
 } from 'react-native';
 import {
   Appbar,
@@ -10,6 +12,7 @@ import {
   Divider,
   Text,
   Surface,
+  RadioButton,
 } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
@@ -19,13 +22,38 @@ import { RootStackParamList } from '../types';
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 const DEBUG_MODE_KEY = '@debug_mode_enabled';
+const DEFAULT_FONT_SIZE_KEY = '@default_font_size';
+
+const FONT_SIZE_OPTIONS = [
+  { label: 'Small', value: 14 },
+  { label: 'Medium', value: 16 },
+  { label: 'Large', value: 18 },
+  { label: 'XL', value: 20 },
+  { label: 'Huge', value: 22 },
+];
+
+export const getDefaultFontSize = async (): Promise<number> => {
+  try {
+    const value = await AsyncStorage.getItem(DEFAULT_FONT_SIZE_KEY);
+    return value ? parseInt(value, 10) : 18;
+  } catch (error) {
+    console.error('Error loading default font size:', error);
+    return 18;
+  }
+};
+
+export const getLineHeightForFontSize = (fontSize: number): number => {
+  return Math.round(fontSize * 1.78);
+};
 
 export default function SettingsScreen() {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const [debugMode, setDebugMode] = useState(false);
+  const [fontSize, setFontSize] = useState(18);
 
   useEffect(() => {
     loadDebugMode();
+    loadFontSize();
   }, []);
 
   const loadDebugMode = async () => {
@@ -37,6 +65,11 @@ export default function SettingsScreen() {
     }
   };
 
+  const loadFontSize = async () => {
+    const size = await getDefaultFontSize();
+    setFontSize(size);
+  };
+
   const toggleDebugMode = async () => {
     try {
       const newValue = !debugMode;
@@ -45,6 +78,15 @@ export default function SettingsScreen() {
       console.log(`Debug mode ${newValue ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error saving debug mode:', error);
+    }
+  };
+
+  const handleFontSizeChange = async (newSize: number) => {
+    try {
+      await AsyncStorage.setItem(DEFAULT_FONT_SIZE_KEY, newSize.toString());
+      setFontSize(newSize);
+    } catch (error) {
+      console.error('Error saving font size:', error);
     }
   };
 
@@ -66,6 +108,8 @@ export default function SettingsScreen() {
     },
   ];
 
+  const lineHeight = getLineHeightForFontSize(fontSize);
+
   return (
     <ScrollView style={styles.container}>
       <Appbar.Header>
@@ -74,6 +118,38 @@ export default function SettingsScreen() {
 
       <Surface style={styles.section}>
         <List.Section>
+          <List.Item
+            title="Default Reading Font Size"
+            description="Adjust text size for article reading"
+          />
+          <View style={styles.fontSizeContainer}>
+            {FONT_SIZE_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={styles.radioOption}
+                onPress={() => handleFontSizeChange(option.value)}
+              >
+                <RadioButton
+                  value={option.value.toString()}
+                  status={fontSize === option.value ? 'checked' : 'unchecked'}
+                  onPress={() => handleFontSizeChange(option.value)}
+                />
+                <Text style={styles.radioLabel}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <Divider style={styles.previewDivider} />
+          
+          <View style={styles.previewContainer}>
+            <Text style={styles.previewLabel}>Preview:</Text>
+            <Text style={[styles.previewText, { fontSize, lineHeight }]}>
+              学习中文是一件很有趣的事情。Reading Chinese can be both challenging and rewarding.
+            </Text>
+          </View>
+          
+          <Divider />
+          
           {settingsItems.map((item, index) => (
             <React.Fragment key={index}>
               <List.Item
@@ -115,6 +191,38 @@ const styles = StyleSheet.create({
     margin: 8,
     borderRadius: 6,
     overflow: 'hidden',
+  },
+  fontSizeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  radioOption: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  radioLabel: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  previewDivider: {
+    marginHorizontal: 16,
+  },
+  previewContainer: {
+    padding: 16,
+    backgroundColor: '#fafafa',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  previewLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  previewText: {
+    color: '#333',
   },
   footer: {
     padding: 40,
