@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { SegmentedWord } from '../types';
+import { LRUCache } from '../utils/lruCache';
 
 const DB_NAME = 'character_recognition.db';
 
@@ -56,6 +57,7 @@ export interface CharacterTag {
 
 class CharacterRecognitionService {
   private db: SQLite.SQLiteDatabase | null = null;
+  private vocabularyByTagCache = new LRUCache<number, string[]>(50);
 
   async initialize(): Promise<void> {
     try {
@@ -965,12 +967,23 @@ class CharacterRecognitionService {
   }
 
   async getVocabularyByTag(tagId: number): Promise<string[]> {
+    // Check cache first
+    const cached = this.vocabularyByTagCache.get(tagId);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     if (!this.db) return [];
     const rows = await this.db.getAllAsync<{ vocabulary_id: string }>(
       'SELECT vocabulary_id FROM vocabulary_tags WHERE tag_id = ? ORDER BY vocabulary_id',
       [tagId]
     );
-    return rows.map(r => r.vocabulary_id);
+    const result = rows.map(r => r.vocabulary_id);
+    
+    // Cache the result
+    this.vocabularyByTagCache.set(tagId, result);
+    
+    return result;
   }
 
   async addTagToVocabulary(vocabularyId: string, tagId: number): Promise<boolean> {
@@ -980,6 +993,8 @@ class CharacterRecognitionService {
         'INSERT OR IGNORE INTO vocabulary_tags (vocabulary_id, tag_id) VALUES (?, ?)',
         [vocabularyId, tagId]
       );
+      // Invalidate cache for this tag since vocabulary was added
+      this.vocabularyByTagCache.delete(tagId);
       return true;
     } catch (error) {
       console.error('Error adding tag to vocabulary:', error);
@@ -994,6 +1009,9 @@ class CharacterRecognitionService {
         'DELETE FROM vocabulary_tags WHERE vocabulary_id = ? AND tag_id = ?',
         [vocabularyId, tagId]
       );
+      // Invalidate cache for this tag since vocabulary was removed
+      // TODO: Also invalidate when vocabulary deletion is implemented
+      this.vocabularyByTagCache.delete(tagId);
       return true;
     } catch (error) {
       console.error('Error removing tag from vocabulary:', error);
