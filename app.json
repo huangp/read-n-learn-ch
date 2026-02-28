@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": false,
-      "bundleIdentifier": "com.yourcompany.readnlearnch"
+      "bundleIdentifier": "com.github.huangp.readnlearnch"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.yourcompany.readnlearnch"
+      "package": "com.github.huangp.readnlearnch"
     },
     "web": {
       "favicon": "./assets/favicon.png"

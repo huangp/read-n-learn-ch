@@ -1,42 +1,20 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  Alert,
-  useWindowDimensions,
-  Dimensions,
-  ScrollView,
-} from 'react-native';
-import {
-  Text,
-  Surface,
-  Card,
-  Appbar,
-  Menu,
-  IconButton,
-  FAB,
-  Portal,
-  Modal,
-  ActivityIndicator,
-  Divider,
-  TouchableRipple,
-} from 'react-native-paper';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { Article, RootStackParamList, ReadingProgress, SegmentedWord } from '../types';
-import { StorageService } from '../services/storage';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Alert, Dimensions, FlatList, ScrollView, StyleSheet, useWindowDimensions, View,} from 'react-native';
+import {ActivityIndicator, Appbar, Card, FAB, Menu, Text,} from 'react-native-paper';
+import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {Article, ReadingProgress, RootStackParamList, SegmentedWord} from '../types';
+import {StorageService} from '../services/storage';
 import DebugService from '../services/debug';
 import CharacterRecognitionService from '../services/characterRecognition';
-import { paginateContent, PaginationResult, getPageForPosition, getPositionForPage } from '../utils/pagination';
-import { getSegmentsForPage } from '../services/segmentation';
+import {paginateContent} from '../utils/pagination';
+import {getSegmentsForPage} from '../services/segmentation';
 import PaginationControls from '../components/PaginationControls';
 import SegmentedText from '../components/SegmentedText';
 import WordLookupModal from '../components/WordLookupModal';
 import CompleteReadingButton from '../components/CompleteReadingButton';
 import ReadingStatsPanel from '../components/ReadingStatsPanel';
-import ArticleMenu from '../components/ArticleMenu';
-import { getDefaultFontSize, getLineHeightForFontSize } from './SettingsScreen';
+import {getDefaultFontSize, getLineHeightForFontSize} from './SettingsScreen';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -47,7 +25,6 @@ export default function ArticleDetailScreen() {
   const route = useRoute<ArticleDetailScreenRouteProp>();
   const navigation = useNavigation<ArticleDetailScreenNavigationProp>();
   const { width } = useWindowDimensions();
-  const isTablet = width >= 768;
 
   const { articleId } = route.params;
   const [article, setArticle] = useState<Article | null>(null);

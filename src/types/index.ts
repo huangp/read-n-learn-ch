@@ -58,5 +58,6 @@ export type RootStackParamList = {
   Settings: undefined;
   CharacterBrowser: undefined;
   TagManagement: undefined;
+  DebugDatabase: undefined;
 };
 

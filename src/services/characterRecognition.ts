@@ -1111,6 +1111,24 @@ class CharacterRecognitionService {
     }
     return result;
   }
+
+  // Debug method to execute raw SQL queries
+  async executeRawQuery(sql: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    // Safety check - only allow SELECT queries for safety
+    const trimmedSql = sql.trim().toUpperCase();
+    if (!trimmedSql.startsWith('SELECT') && !trimmedSql.startsWith('PRAGMA')) {
+      throw new Error('Only SELECT and PRAGMA queries are allowed for safety');
+    }
+    
+    try {
+      const results = await this.db.getAllAsync(sql);
+      return results;
+    } catch (error) {
+      throw new Error(`Query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 }
 
 export default new CharacterRecognitionService();

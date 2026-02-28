@@ -10,6 +10,7 @@ import CameraScreen from '../screens/CameraScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharacterBrowseScreen from '../screens/CharacterBrowseScreen';
 import TagManagementScreen from '../screens/TagManagementScreen';
+import DebugDatabaseScreen from '../screens/DebugDatabaseScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -68,6 +69,11 @@ export default function AppNavigator() {
           name="TagManagement"
           component={TagManagementScreen}
           options={{ title: 'Manage Tags' }}
+        />
+        <Stack.Screen
+          name="DebugDatabase"
+          component={DebugDatabaseScreen}
+          options={{ title: 'Debug Database' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

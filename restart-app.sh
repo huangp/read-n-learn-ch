@@ -92,7 +92,7 @@ echo "Installing on simulator..."
 xcrun simctl install booted "$APP_PATH"
 
 echo "Launching app..."
-xcrun simctl launch booted com.yourcompany.readnlearnch
+xcrun simctl launch booted com.github.huangp.readnlearnch
 
 echo ""
 echo "Starting Metro bundler..."

@@ -172,6 +172,17 @@ export default function SettingsScreen() {
               />
             )}
           />
+          {debugMode && (
+            <>
+              <Divider />
+              <List.Item
+                title="Debug Database"
+                description="Query SQLite database directly"
+                onPress={() => navigation.navigate('DebugDatabase')}
+                right={props => <List.Icon {...props} icon="database" />}
+              />
+            </>
+          )}
         </List.Section>
       </Surface>
 
