@@ -88,7 +88,7 @@ export default function CharacterBrowseScreen() {
   const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [knownMap, setKnownMap] = useState<Map<string, boolean>>(new Map());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [lookupWord, setLookupWord] = useState<string | null>(null);
   const [lookupVisible, setLookupVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
@@ -99,15 +99,6 @@ export default function CharacterBrowseScreen() {
   const [hskWords, setHskWords] = useState<Record<number, HSKWord[]>>({
     1: [], 2: [], 3: [], 4: [], 5: [], 6: []
   });
-
-  const loadHSKWords = useCallback(async () => {
-    const words: Record<number, HSKWord[]> = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-    for (const level of HSK_LEVELS) {
-      const levelWords = await CharacterRecognitionService.getHSKWordsByLevel(level);
-      words[level] = levelWords.map(w => ({ word: w }));
-    }
-    setHskWords(words);
-  }, []);
 
   const currentWords = useMemo(() => {
     if (selectedTagId) {
@@ -170,10 +161,9 @@ export default function CharacterBrowseScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadHSKWords();
       loadKnownStatus();
       loadTags();
-    }, [loadHSKWords, loadKnownStatus, loadTags])
+    }, [loadKnownStatus, loadTags])
   );
 
   useEffect(() => {
