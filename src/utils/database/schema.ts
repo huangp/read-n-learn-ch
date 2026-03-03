@@ -4,12 +4,16 @@
  */
 
 export const SCHEMA_VERSIONS = {
-  CHARACTER_RECOGNITION: 1,
+  CHARACTER_RECOGNITION: 2,
   DICTIONARY: 2,
 } as const;
 
 // Character Recognition Database Schema
 export const CHARACTER_RECOGNITION_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
   CREATE TABLE IF NOT EXISTS vocabulary (
     id TEXT PRIMARY KEY,
     hsk_level INTEGER,
@@ -124,19 +128,17 @@ export const DICTIONARY_SCHEMA = `
     definitions TEXT NOT NULL,
     hsk_level INTEGER
   );
+
+  CREATE TABLE IF NOT EXISTS example_sentences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    word TEXT NOT NULL,
+    chinese TEXT NOT NULL,
+    pinyin TEXT,
+    english TEXT NOT NULL,
+    difficulty INTEGER DEFAULT 2
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_examples_word ON example_sentences(word);
+  CREATE INDEX IF NOT EXISTS idx_examples_difficulty ON example_sentences(difficulty);
 `;
 
-// Default data for character recognition database
-export const DEFAULT_TAGS = [
-  { name: 'HSK1', description: 'HSK Level 1' },
-  { name: 'HSK2', description: 'HSK Level 2' },
-  { name: 'HSK3', description: 'HSK Level 3' },
-  { name: 'HSK4', description: 'HSK Level 4' },
-  { name: 'HSK5', description: 'HSK Level 5' },
-  { name: 'HSK6', description: 'HSK Level 6' },
-  { name: 'beginner', description: 'Beginner level (HSK1)' },
-  { name: 'simple', description: 'Simple level (HSK1-2)' },
-  { name: 'advanced', description: 'Advanced level (HSK3-4)' },
-  { name: 'expert', description: 'Expert level (HSK5-6)' },
-  { name: 'learning', description: 'Currently learning' },
-];

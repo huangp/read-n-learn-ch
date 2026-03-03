@@ -1,5 +1,5 @@
 import * as SQLite from "expo-sqlite";
-import {DB_NAMES, getDatabase} from "./connection";
+import {DB_NAMES, getDatabase, openDatabase} from "./connection";
 import {LRUCache} from "../lruCache";
 import {Tag} from "./types";
 
@@ -7,8 +7,16 @@ export class VocabularyDBUtils {
     private db: SQLite.SQLiteDatabase;
     private vocabularyByTagCache = new LRUCache<number, string[]>(50);
 
-    constructor(db?: SQLite.SQLiteDatabase) {
-        this.db = db ?? getDatabase(DB_NAMES.CHARACTER_RECOGNITION)!!;
+    constructor(db: SQLite.SQLiteDatabase) {
+        this.db = db;
+     }
+
+    static async create(): Promise<VocabularyDBUtils> {
+        let db = getDatabase(DB_NAMES.CHARACTER_RECOGNITION);
+        if (!db) {
+            db = await openDatabase(DB_NAMES.CHARACTER_RECOGNITION);
+        }
+        return new VocabularyDBUtils(db);
     }
 
     /**

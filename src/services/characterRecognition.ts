@@ -36,12 +36,14 @@ export type {
 
 class CharacterRecognitionService {
   private db: SQLite.SQLiteDatabase | null = null;
-  private vocabularyDBUtils: VocabularyDBUtils = new VocabularyDBUtils();
+  private vocabularyDBUtils: VocabularyDBUtils | null = null;
 
   async initialize(): Promise<void> {
     try {
       await initializeCharacterRecognitionDB();
+
       this.db = getDatabase(DB_NAME);
+      this.vocabularyDBUtils = await VocabularyDBUtils.create();
       await this.prepopulateHSKData();
       console.log('CharacterRecognitionService initialized');
     } catch (error) {
@@ -162,7 +164,7 @@ class CharacterRecognitionService {
   }
 
   async markWordAsLookedUp(sessionId: number, word: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db || !this.vocabularyDBUtils) throw new Error('Database not initialized');
 
     const chars = word.split('');
 
@@ -250,6 +252,7 @@ class CharacterRecognitionService {
     content: string,
     words: string[]
   ): Promise<ArticleMeta> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     const now = Date.now();
 
     // Total and unique Chinese characters
@@ -338,6 +341,7 @@ class CharacterRecognitionService {
 
 
   async toggleWordKnown(word: string): Promise<boolean> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     return await this.vocabularyDBUtils.toggleWordKnown(word);
 
   }
@@ -347,19 +351,25 @@ class CharacterRecognitionService {
    * Returns a Map<word, boolean>.
    */
   async getKnownStatusBatch(words: string[]): Promise<Map<string, boolean>> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     return this.vocabularyDBUtils.getVocabularyKnownStatus(words);
   }
 
   // ---- Tag Management ----
   async getAllTags(): Promise<Tag[]> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     return await this.vocabularyDBUtils.getAllTags();
   }
   async getVocabularyByTag(tagId: number): Promise<string[]> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     return this.vocabularyDBUtils.getVocabularyByTag(tagId);
   }
 
   async autoTagVocabularyByHSK(vocabularyId: string, hskLevel: number | null): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || !this.vocabularyDBUtils) {
+      console.warn('Database not initialized, cannot auto-tag vocabulary', this.vocabularyDBUtils);
+      return;
+    }
 
     const tagsToApply: string[] = [];
     

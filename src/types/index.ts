@@ -50,6 +50,15 @@ export interface ReadingProgress {
   lastReadAt: number;
 }
 
+export interface ExampleSentence {
+  id: number;
+  word: string;
+  chinese: string;
+  pinyin?: string;
+  english: string;
+  difficulty: number;
+}
+
 export type RootStackParamList = {
   Home: undefined;
   ArticleDetail: { articleId: string };

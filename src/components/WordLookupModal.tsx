@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,9 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { SegmentedWord } from '../types';
+import { SegmentedWord, ExampleSentence } from '../types';
 import type { WordLookupResult } from '../data/dictionary';
-import { searchDictionarySync } from '../services/dictionaryLoader';
+import { searchDictionarySync, getExamplesForWord } from '../services/dictionaryLoader';
 
 interface WordLookupModalProps {
   visible: boolean;
@@ -30,6 +30,9 @@ export default function WordLookupModal({
 
   // Resolve the actual text to look up
   const text = word?.text ?? wordText ?? null;
+
+  // State for example sentences
+  const [examples, setExamples] = useState<ExampleSentence[]>([]);
 
   // Synchronous lookup - dictionary is preloaded at app startup
   const lookup: WordLookupResult | null = useMemo(() => {
@@ -82,7 +85,7 @@ export default function WordLookupModal({
         definitions: entry.definitions,
         pos: entry.pos || '',
         hskLevel: entry.hskLevel,
-        examples: (entry.examples || []).slice(0, 3),
+        examples: [],
         characters: chars,
       };
     }
@@ -95,6 +98,16 @@ export default function WordLookupModal({
       examples: [],
       characters: chars,
     };
+  }, [text]);
+
+  // Fetch example sentences asynchronously when word changes
+  useEffect(() => {
+    if (!text) {
+      setExamples([]);
+      return;
+    }
+
+    getExamplesForWord(text, 3).then(setExamples);
   }, [text]);
 
   if (!text) return null;
@@ -144,8 +157,6 @@ export default function WordLookupModal({
   };
 
   const renderExamples = () => {
-    const examples = lookup?.examples?.slice(0, 3) ?? [];
-
     if (examples.length === 0) return null;
 
     return (
@@ -154,6 +165,9 @@ export default function WordLookupModal({
         {examples.map((ex, i) => (
           <View key={i} style={styles.exampleContainer}>
             <Text style={styles.exampleChinese}>{ex.chinese}</Text>
+            {ex.pinyin ? (
+              <Text style={styles.examplePinyin}>{ex.pinyin}</Text>
+            ) : null}
             {ex.english ? (
               <Text style={styles.exampleEnglish}>{ex.english}</Text>
             ) : null}
@@ -343,6 +357,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 26,
     color: '#333',
+  },
+  examplePinyin: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#007AFF',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   exampleEnglish: {
     fontSize: 14,
