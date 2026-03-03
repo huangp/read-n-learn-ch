@@ -27,6 +27,7 @@ const QUICK_QUERIES = [
   { label: 'Recent Sessions', query: 'SELECT * FROM reading_sessions ORDER BY started_at DESC LIMIT 10' },
   { label: 'Article Meta', query: 'SELECT * FROM article_meta ORDER BY updated_at DESC LIMIT 10' },
   { label: 'Known Vocab', query: 'SELECT id, familiarity, is_known FROM vocabulary WHERE is_known = 1 ORDER BY familiarity DESC LIMIT 20' },
+  { label: 'Examples', query: 'SELECT * FROM example_sentences LIMIT 20' },
   { label: 'Tag Counts', query: `SELECT t.name, COUNT(vt.vocabulary_id) as vocab_count 
 FROM tags t 
 LEFT JOIN vocabulary_tags vt ON t.id = vt.tag_id 

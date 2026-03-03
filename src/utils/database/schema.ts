@@ -7,7 +7,7 @@
  * bump version when making breaking changes to the schema
  */
 export const SCHEMA_VERSIONS = {
-  CHARACTER_RECOGNITION: 4,
+  CHARACTER_RECOGNITION: 6,
 } as const;
 
 // Character Recognition Database Schema

@@ -140,5 +140,12 @@ export async function getExamplesForWord(
     if (!dictDBUtil) {
       dictDBUtil = await DictionaryDBUtil.create();
     }
-    return dictDBUtil.getExamplesForWord(word, limit);
+  const examplesForWord = await dictDBUtil.getExamplesForWord(word, limit);
+    if (examplesForWord.length === 0 && word.length > 1) {
+      for (const char of word) {
+        const charExamples = await dictDBUtil.getExamplesForWord(char, limit);
+        examplesForWord.push(...charExamples);
+      }
+    }
+  return examplesForWord;
 }

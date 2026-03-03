@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const pinyin = require('pinyin');
+const { Converter } = require('opencc-js');
 
 // ---- Config ----------------------------------------------------------------
 
@@ -29,6 +30,9 @@ const WORD_LIST_PATH = path.join(__dirname, '..', 'assets', 'dict', 'cedict-full
 const MAX_WORDS = 50000;  // Top 50,000 words
 const MAX_EXAMPLES_PER_WORD = 3;
 const MAX_TOTAL_EXAMPLES = 150000;  // 50K words × 3 examples
+
+// Initialize OpenCC converter (Traditional to Simplified)
+const converter = Converter({ from: 'tw', to: 'cn' });
 
 // ---- Helpers ---------------------------------------------------------------
 
@@ -120,11 +124,12 @@ function loadWordList() {
 /**
  * Parse Tatoeba sentences file
  * Format: id [tab] lang [tab] text [tab] ...
+ * Converts Traditional Chinese to Simplified
  */
 async function parseSentences(sentencesPath) {
   console.log('[examples] Parsing sentences...');
   
-  const chineseSentences = new Map();  // id -> text
+  const chineseSentences = new Map();  // id -> text (Simplified)
   const englishSentences = new Map();  // id -> text
   
   const fileStream = fs.createReadStream(sentencesPath);
@@ -148,7 +153,9 @@ async function parseSentences(sentencesPath) {
     const [id, lang, text] = parts;
     
     if (lang === 'cmn') {  // Mandarin Chinese
-      chineseSentences.set(id, text);
+      // Convert Traditional to Simplified
+      const simplifiedText = converter(text);
+      chineseSentences.set(id, simplifiedText);
     } else if (lang === 'eng') {  // English
       englishSentences.set(id, text);
     }

@@ -231,12 +231,12 @@ export default function WordLookupModal({
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
           >
             {renderHeader()}
             {renderDefinitions()}
-            {renderExamples()}
             {renderCharacterBreakdown()}
+            {renderExamples()}
           </ScrollView>
 
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
