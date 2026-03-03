@@ -96,7 +96,6 @@ export class TransactionError extends DatabaseError {
 // Database names
 export const DB_NAMES = {
   CHARACTER_RECOGNITION: 'character_recognition.db',
-  DICTIONARY: 'dictionary.db',
 } as const;
 
 export type DatabaseName = typeof DB_NAMES[keyof typeof DB_NAMES];

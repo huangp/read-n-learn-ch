@@ -3,9 +3,11 @@
  * All CREATE TABLE statements and schema versions
  */
 
+/**
+ * bump version when making breaking changes to the schema
+ */
 export const SCHEMA_VERSIONS = {
-  CHARACTER_RECOGNITION: 2,
-  DICTIONARY: 2,
+  CHARACTER_RECOGNITION: 4,
 } as const;
 
 // Character Recognition Database Schema
@@ -113,16 +115,9 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
     ('advanced', 'Advanced level (HSK3-4)'),
     ('expert', 'Expert level (HSK5-6)'),
     ('learning', 'Currently learning');
-`;
 
-// Dictionary Database Schema
-export const DICTIONARY_SCHEMA = `
-  CREATE TABLE IF NOT EXISTS meta (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS entries (
+  -- Dictionary tables (merged from dictionary.db)
+  CREATE TABLE IF NOT EXISTS dictionary_entries (
     simplified TEXT PRIMARY KEY,
     pinyin TEXT NOT NULL,
     definitions TEXT NOT NULL,
@@ -138,6 +133,7 @@ export const DICTIONARY_SCHEMA = `
     difficulty INTEGER DEFAULT 2
   );
 
+  CREATE INDEX IF NOT EXISTS idx_dictionary_entries_hsk ON dictionary_entries(hsk_level);
   CREATE INDEX IF NOT EXISTS idx_examples_word ON example_sentences(word);
   CREATE INDEX IF NOT EXISTS idx_examples_difficulty ON example_sentences(difficulty);
 `;

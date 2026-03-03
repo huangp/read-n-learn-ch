@@ -41,6 +41,25 @@ export class VocabularyDBUtils {
         }
     }
 
+    async insertVocabularyFromDictEntries(entries: { simplified: string, hsk_level: number }[]): Promise<void> {
+        const now = Date.now();
+
+        for (const entry of entries) {
+            const word = entry.simplified;
+            const level = entry.hsk_level;
+
+            if (!word || !level || level < 1 || level > 6) continue;
+
+            // Insert the word/character into vocabulary table
+            await this.db.runAsync(
+                `INSERT OR IGNORE INTO vocabulary 
+         (id, hsk_level, familiarity, is_known, first_seen_at, last_reviewed_at, total_exposures) 
+         VALUES (?, ?, 0, 0, ?, ?, 0)`,
+                [word, level, now, now]
+            );
+        }
+    }
+
     /**
      * Log a word lookup event for analytics and spaced repetition purposes.
      * @param word

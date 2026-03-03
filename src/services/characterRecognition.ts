@@ -4,15 +4,15 @@ import {
   DB_NAMES,
   getDatabase,
   initializeCharacterRecognitionDB,
-  ReadingSession,
   Tag,
-  VocabularyItem,
 } from '../utils/database';
 
 import {VocabularyDBUtils} from "../utils/database/vocabulary";
 import {
   cancelReadingSession,
-  completeReadingSession, getAllArticleMeta, getArticleMeta,
+  completeReadingSession,
+  getAllArticleMeta,
+  getArticleMeta,
   getCurrentSessionData,
   getOverallStats,
   saveArticleMeta,
@@ -22,8 +22,6 @@ import {
 } from "../utils/database/article";
 
 import {searchDictionarySync} from "./dictionaryLoader";
-
-const DB_NAME = DB_NAMES.CHARACTER_RECOGNITION;
 
 // Re-export types from database utils for backward compatibility
 export type {
@@ -42,7 +40,7 @@ class CharacterRecognitionService {
     try {
       await initializeCharacterRecognitionDB();
 
-      this.db = getDatabase(DB_NAME);
+      this.db = getDatabase(DB_NAMES.CHARACTER_RECOGNITION);
       this.vocabularyDBUtils = await VocabularyDBUtils.create();
       await this.prepopulateHSKData();
       console.log('CharacterRecognitionService initialized');
@@ -53,23 +51,21 @@ class CharacterRecognitionService {
   }
 
   private async prepopulateHSKData(): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || !this.vocabularyDBUtils) return;
 
     console.log('[HSK] Pre-populating HSK data from dictionary...');
 
     // Get HSK data from dictionary database
-    const { getDictionaryDatabase } = await import('./dictionaryLoader');
-    const dictDb = getDictionaryDatabase();
+    const { getDictionaryDBUtil } = await import('./dictionaryLoader');
+    const dictUtil = getDictionaryDBUtil();
     
-    if (!dictDb) {
+    if (!dictUtil) {
       console.log('[HSK] Dictionary not ready, skipping pre-population');
       return;
     }
 
     // Query all entries with HSK levels
-    const entries = await dictDb.getAllAsync<{ simplified: string; hsk_level: number }>(
-      'SELECT simplified, hsk_level FROM entries WHERE hsk_level IS NOT NULL ORDER BY hsk_level'
-    );
+    const entries = await dictUtil.getAllDictionaryEntries();
 
     if (!entries || entries.length === 0) {
       console.log('[HSK] No HSK data found in dictionary');
@@ -113,35 +109,17 @@ class CharacterRecognitionService {
     // Insert all vocabulary (words and characters) into unified table
     console.log(`[HSK] Processing ${entries.length} vocabulary items`);
     
-    for (const entry of entries) {
-      const word = entry.simplified;
-      const level = entry.hsk_level;
-      
-      if (!word || !level || level < 1 || level > 6) continue;
-      
-      // Insert the word/character into vocabulary table
-      await this.db.runAsync(
-        `INSERT OR IGNORE INTO vocabulary 
-         (id, hsk_level, familiarity, is_known, first_seen_at, last_reviewed_at, total_exposures) 
-         VALUES (?, ?, 0, 0, ?, ?, 0)`,
-        [word, level, now, now]
-      );
-    }
+    await this.vocabularyDBUtils.insertVocabularyFromDictEntries(entries);
 
     // Insert individual characters with their lowest HSK level
     console.log(`[HSK] Processing ${charToLowestLevel.size} unique characters`);
-    
-    for (const [char, level] of charToLowestLevel) {
-      await this.db.runAsync(
-        `INSERT OR IGNORE INTO vocabulary 
-         (id, hsk_level, familiarity, is_known, first_seen_at, last_reviewed_at, total_exposures) 
-         VALUES (?, ?, 0, 0, ?, ?, 0)`,
-        [char, level, now, now]
-      );
 
-      // Also tag with HSK level for filtering
-      await this.autoTagVocabularyByHSK(char, level);
-    }
+    const charEntries = [...charToLowestLevel]
+        .map(([char, level]) => ({
+          simplified: char,
+          hsk_level: level
+        }));
+    await this.vocabularyDBUtils.insertVocabularyFromDictEntries(charEntries);
 
     console.log('[HSK] Pre-population complete');
   }
