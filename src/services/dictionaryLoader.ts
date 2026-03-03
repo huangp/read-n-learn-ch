@@ -19,6 +19,15 @@ import {ExampleSentence} from "../types";
 import {DictionaryDBUtil} from "../utils/database/dictionary";
 import {DB_NAMES, needsRebuild, SCHEMA_VERSIONS} from "../utils/database";
 
+// Interface for examples coming from JSON file (has word property)
+interface JSONExampleSentence {
+  word: string;
+  chinese: string;
+  pinyin: string | null;
+  english: string;
+  difficulty: number;
+}
+
 
 // ---------- State ----------
 let dictDBUtil: DictionaryDBUtil | null = null;
@@ -36,7 +45,7 @@ async function loadExampleSentences(): Promise<void> {
   }
 
   try {
-    const examples: ExampleSentence[] = require('../../assets/dict/examples.json');
+    const examples: JSONExampleSentence[] = require('../../assets/dict/examples.json');
     if (!examples || examples.length === 0) {
       console.log('[dict] No example sentences found');
       return;
@@ -73,6 +82,7 @@ export async function loadCoreDictionary(): Promise<void> {
   if (rebuild) {
     console.log('[dict] Building SQLite dictionary...');
     // Clear old data
+    // await dictDBUtil.dropDictTables();
     await dictDBUtil.deleteOldData();
 
     const data: RawEntry[] = require('../../assets/dict/cedict-core.json');

@@ -7,8 +7,26 @@
  * bump version when making breaking changes to the schema
  */
 export const SCHEMA_VERSIONS = {
-  CHARACTER_RECOGNITION: 6,
+  CHARACTER_RECOGNITION: 1,
 } as const;
+
+// Drop statements for dictionary tables (can be rebuilt from JSON)
+export const DROP_DICTIONARY_TABLES = `
+  DROP TABLE IF EXISTS example_sentences;
+  DROP TABLE IF EXISTS dictionary_entries;
+`;
+
+// Drop statements for user data tables (will lose user progress)
+export const DROP_USER_DATA_TABLES = `
+  DROP TABLE IF EXISTS vocabulary_tags;
+  DROP TABLE IF EXISTS tags;
+  DROP TABLE IF EXISTS article_meta;
+  DROP TABLE IF EXISTS word_lookup_log;
+  DROP TABLE IF EXISTS character_exposure_log;
+  DROP TABLE IF EXISTS reading_sessions;
+  DROP TABLE IF EXISTS vocabulary;
+  DROP TABLE IF EXISTS meta;
+`;
 
 // Character Recognition Database Schema
 export const CHARACTER_RECOGNITION_SCHEMA = `
@@ -125,16 +143,10 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
   );
 
   CREATE TABLE IF NOT EXISTS example_sentences (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word TEXT NOT NULL,
-    chinese TEXT NOT NULL,
-    pinyin TEXT,
-    english TEXT NOT NULL,
-    difficulty INTEGER DEFAULT 2
+    word TEXT PRIMARY KEY,
+    sentences TEXT NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_dictionary_entries_hsk ON dictionary_entries(hsk_level);
-  CREATE INDEX IF NOT EXISTS idx_examples_word ON example_sentences(word);
-  CREATE INDEX IF NOT EXISTS idx_examples_difficulty ON example_sentences(difficulty);
 `;
 

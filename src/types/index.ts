@@ -51,12 +51,10 @@ export interface ReadingProgress {
 }
 
 export interface ExampleSentence {
-  id: number;
-  word: string;
   chinese: string;
-  pinyin?: string;
   english: string;
   difficulty: number;
+  pinyin?: string;  // Generated on-the-fly
 }
 
 export type RootStackParamList = {

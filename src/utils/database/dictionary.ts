@@ -4,8 +4,19 @@ import {getDatabase, openDatabase} from "./connection";
 import {DB_NAMES} from "./types";
 import {LRUCache} from "../lruCache";
 import {ExampleSentence} from "../../types";
+import {executeBatch} from "./queries";
+import {DROP_DICTIONARY_TABLES} from "./schema";
 
 const CACHE_SIZE = 2000;
+
+// Interface for examples coming from JSON file
+interface JSONExampleSentence {
+  word: string;
+  chinese: string;
+  pinyin: string | null;
+  english: string;
+  difficulty: number;
+}
 
 function rowToEntry(row: {
     simplified: string;
@@ -21,6 +32,16 @@ function rowToEntry(row: {
         hskLevel: row.hsk_level ?? undefined,
         examples: [] as ExampleSentence[],
     };
+}
+
+/**
+ * TODO Generate pinyin for Chinese text using simple character mapping
+ * This is a lightweight implementation - consider using pinyin library for production
+ */
+function generatePinyin(chinese: string): string {
+    // For now, return empty string - pinyin can be added later
+    // In production, you'd use a library like 'pinyin' to generate this
+    return '';
 }
 
 export class DictionaryDBUtil {
@@ -61,25 +82,44 @@ export class DictionaryDBUtil {
         }
     }
 
-    async insertExampleSentences(examples: ExampleSentence[]): Promise<void> {
+    async insertExampleSentences(examples: JSONExampleSentence[]): Promise<void> {
         if (!this.db || examples.length === 0) return;
 
-        const BATCH = 500;
-        // Insert in batches
-        for (let i = 0; i < examples.length; i += BATCH) {
-            const chunk = examples.slice(i, i + BATCH);
-            const placeholders = chunk.map(() => '(?,?,?,?,?)').join(',');
-            const params: any[] = [];
-
-            for (const ex of chunk) {
-                params.push(ex.word, ex.chinese, ex.pinyin, ex.english, ex.difficulty);
+        // Group examples by word, keeping max 3 per word
+        const examplesByWord = new Map<string, Array<{chinese: string, english: string, difficulty: number}>>();
+        
+        for (const ex of examples) {
+            if (!examplesByWord.has(ex.word)) {
+                examplesByWord.set(ex.word, []);
             }
-
-            await this.db.runAsync(
-                `INSERT INTO example_sentences (word, chinese, pinyin, english, difficulty) VALUES ${placeholders}`,
-                params
-            );
+            
+            const wordExamples = examplesByWord.get(ex.word)!;
+            if (wordExamples.length < 3) {
+                wordExamples.push({
+                    chinese: ex.chinese,
+                    english: ex.english,
+                    difficulty: ex.difficulty
+                });
+            }
         }
+
+        // Insert grouped examples as JSON
+        const BATCH = 500;
+        const wordEntries = Array.from(examplesByWord.entries());
+        
+        for (let i = 0; i < wordEntries.length; i += BATCH) {
+            const chunk = wordEntries.slice(i, i + BATCH);
+            
+            for (const [word, sentences] of chunk) {
+                const sentencesJson = JSON.stringify(sentences);
+                await this.db.runAsync(
+                    `INSERT OR REPLACE INTO example_sentences (word, sentences) VALUES (?, ?)`,
+                    [word, sentencesJson]
+                );
+            }
+        }
+        
+        console.log(`[dict] Inserted ${examplesByWord.size} words with example sentences`);
     }
 
 
@@ -98,26 +138,29 @@ export class DictionaryDBUtil {
         }
 
         try {
-            const rows = await this.db.getAllAsync<{
-                id: number;
-                word: string;
-                chinese: string;
-                pinyin: string;
-                english: string;
-                difficulty: number;
+            const row = await this.db.getFirstAsync<{
+                sentences: string;
             }>(
-                'SELECT id, word, chinese, pinyin, english, difficulty FROM example_sentences WHERE word = ? ORDER BY difficulty ASC LIMIT ?',
-                [word, limit]
+                'SELECT sentences FROM example_sentences WHERE word = ?',
+                [word]
             );
 
-            const examples: ExampleSentence[] = rows.map(row => ({
-                id: row.id,
-                word: row.word,
-                chinese: row.chinese,
-                pinyin: row.pinyin,
-                english: row.english,
-                difficulty: row.difficulty,
-            }));
+            if (!row) {
+                this.examplesCache.set(word, []);
+                return [];
+            }
+
+            // Parse JSON and generate pinyin on-the-fly
+            const sentences: Array<{chinese: string, english: string, difficulty: number}> = JSON.parse(row.sentences);
+            
+            const examples: ExampleSentence[] = sentences
+                .slice(0, limit)
+                .map(sentence => ({
+                    chinese: sentence.chinese,
+                    english: sentence.english,
+                    difficulty: sentence.difficulty,
+                    pinyin: generatePinyin(sentence.chinese)
+                }));
 
             this.examplesCache.set(word, examples);
             return examples;
@@ -134,6 +177,14 @@ export class DictionaryDBUtil {
             await this.db.execAsync('DELETE FROM example_sentences');
         } catch (error) {
             console.warn('[dict] Failed to clear old dictionary data:', error);
+        }
+    }
+
+    async dropDictTables(): Promise<void> {
+        try {
+            await executeBatch(DB_NAMES.CHARACTER_RECOGNITION, DROP_DICTIONARY_TABLES);
+        } catch (error) {
+            console.warn('[dict] Failed to drop old dictionary tables:', error);
         }
     }
 
@@ -169,4 +220,3 @@ export class DictionaryDBUtil {
         );
     }
 }
-

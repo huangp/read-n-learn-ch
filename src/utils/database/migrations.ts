@@ -46,5 +46,5 @@ export async function needsRebuild(
   targetVersion: number
 ): Promise<boolean> {
   const currentVersion = await getDBVersion(dbName);
-  return currentVersion < targetVersion;
+  return currentVersion != targetVersion;
 }
