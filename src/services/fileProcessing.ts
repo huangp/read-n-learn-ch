@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { extractText } from 'expo-pdf-text-extract';
+import mammoth from 'mammoth';
 import { recognizeText } from '../../modules/expo-vision-ocr';
 import { extractChineseContent } from '../utils/textProcessing';
 import { FileProcessingResult, MultipleFileProcessingResult } from '../types';
@@ -36,52 +37,6 @@ export class FileProcessingService {
       };
     }
   }
-
-  static async pickImage(): Promise<FileProcessingResult> {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (status !== 'granted') {
-        return { 
-          success: false, 
-          error: 'Permission to access media library is required' 
-        };
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1,
-      });
-
-      if (result.canceled) {
-        return { success: false, error: 'User cancelled' };
-      }
-
-      const file = result.assets[0];
-      const fileName = file.uri.split('/').pop() || 'image.jpg';
-
-      // Determine MIME type from file extension if file.type is incomplete
-      let mimeType = file.type || 'image/jpeg';
-      if (mimeType === 'image' || !mimeType.includes('/')) {
-        const ext = fileName.split('.').pop()?.toLowerCase();
-        if (ext === 'png') {
-          mimeType = 'image/png';
-        } else {
-          mimeType = 'image/jpeg';
-        }
-      }
-
-      return await this.processFile(file.uri, mimeType, fileName);
-    } catch (error) {
-      console.error('Error picking image:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to pick image' 
-      };
-    }
-  }
-
   static async pickMultipleImages(
     onProgress?: (current: number, total: number) => void
   ): Promise<MultipleFileProcessingResult> {
@@ -264,12 +219,32 @@ export class FileProcessingService {
   }
 
   private static async extractFromDOCX(uri: string): Promise<string> {
-    // DOCX extraction is not yet supported without a compatible library
-    // TODO: Integrate a React Native compatible DOCX parser
-    throw new Error(
-      'DOCX file extraction is not yet supported. ' +
-      'Please convert the document to a TXT file and try again.'
-    );
+    try {
+      // Read file as base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Convert base64 to ArrayBuffer
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const arrayBuffer = bytes.buffer;
+
+      // Extract text using mammoth
+      const result = await mammoth.extractRawText({ arrayBuffer });
+
+      if (!result.value || !result.value.trim()) {
+        throw new Error('No text found in DOCX file.');
+      }
+
+      return result.value;
+    } catch (error) {
+      console.error('Error extracting DOCX:', error);
+      throw new Error('Failed to extract text from DOCX file');
+    }
   }
 
   private static async extractFromImage(uri: string): Promise<string> {

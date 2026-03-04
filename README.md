@@ -11,7 +11,7 @@ A cross-platform React Native app for storing and reading Chinese text articles,
 - 📕 **Offline dictionary** — 124k+ entries from CC-CEDICT, HSK 1-6 tagged, no internet needed
 - 🔤 **Context-aware word segmentation** — powered by segmentit (pure JS, runs locally)
 - 📷 Camera scan to capture text from images
-- 📄 Import documents (PDF, TXT)
+- 📄 Import documents (PDF, DOCX, TXT)
 - 🖼️ Import images for text extraction
 - 📊 Chinese character count tracking
 - 📱 Responsive layout for iPhone and iPad
@@ -29,41 +29,6 @@ A cross-platform React Native app for storing and reading Chinese text articles,
 - **Pinyin**: pinyin (tone-marked conversion)
 - **Camera**: expo-camera
 - **File Handling**: expo-document-picker, expo-file-system, expo-image-picker
-
-## Project Structure
-
-```
-read-n-learn-ch/
-├── src/
-│   ├── components/          # Reusable UI components
-│   ├── screens/
-│   │   ├── HomeScreen.tsx          # Article list with search
-│   │   ├── ArticleDetailScreen.tsx # View article
-│   │   ├── ArticleEditorScreen.tsx # Create/edit articles
-│   │   ├── CameraScreen.tsx        # Camera scan
-│   │   └── SettingsScreen.tsx      # App settings
-│   ├── navigation/
-│   │   └── AppNavigator.tsx  # Stack navigation config
-│   ├── services/
-│   │   ├── storage.ts        # Article storage (AsyncStorage)
-│   │   ├── dictionary.ts     # Word lookup (pinyin, definitions, HSK level)
-│   │   ├── dictionaryLoader.ts # Loads CC-CEDICT JSON data
-│   │   ├── segmentation.ts   # Chinese word segmentation (segmentit)
-│   │   └── fileProcessing.ts # File import & text extraction
-│   ├── types/
-│   │   └── index.ts          # TypeScript type definitions
-│   ├── hooks/                # Custom React hooks
-│   ├── utils/                # Helper functions
-│   └── constants/            # App constants
-├── assets/                   # Images and fonts
-├── App.tsx                   # App root component
-├── index.ts                  # Entry point
-├── app.json                  # Expo configuration
-├── babel.config.js           # Babel configuration
-├── metro.config.js           # Metro bundler configuration
-├── restart-app.sh            # Full clean rebuild script
-└── package.json
-```
 
 ## Getting Started
 
@@ -111,19 +76,16 @@ xcrun simctl install booted ios/build/Build/Products/Debug-iphonesimulator/YourA
 xcrun simctl launch booted com.yourapp.bundleid
 npx expo start
 ```
-Quick reference:
-Change
-Command
-JS/TS code only
-Metro hot-reloads automatically
-npm packages (JS only)
-npm install then restart Metro
-npm packages (with native code)
-npm install && cd ios && pod install && cd .. && restart-app.sh
-Native module changes
-restart-app.sh
-Full clean rebuild
-restart-app.sh (if it runs npx expo prebuild --clean)
+### Quick reference:
+
+| Change | Command |
+|--------|---------|
+| JS/TS code only | Metro hot-reloads automatically |
+| npm packages (JS only) | npm install then restart Metro |
+| npm packages (with native code) | npm install && cd ios && pod install && cd .. && restart-app.sh |
+| Native module changes | restart-app.sh |
+| Full clean rebuild | restart-app.sh (if it runs npx expo prebuild --clean) |
+
 Key thing to remember:
 If the new npm package has native iOS dependencies (pods), you must run pod install after npm install. If it's a JS-only package, just restarting Metro is enough.
 
@@ -173,29 +135,14 @@ Then press **`i`** to open the app in the iOS Simulator.
 4. **Camera** — Capture images for text extraction (multi-image support)
 5. **Settings** — App info and data management
 
-## Data Model
-
-```typescript
-interface Article {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: number;
-  updatedAt: number;
-  tags?: string[];
-  source?: string;
-  wordCount?: number;  // Chinese character count
-}
-```
-
 ## Supported File Imports
 
 | Format | Status |
-|--------|--------|
+|--------|----|
 | Plain text (.txt) | ✅ Supported |
 | PDF (.pdf) | ✅ Basic text extraction |
-| DOCX (.docx) | 🚧 Coming soon |
-| Image OCR | 🚧 Coming soon |
+| DOCX (.docx) | ✅ Basic text extraction |
+| Image OCR | ✅ Basic text extraction |
 
 ## iPad Support
 
