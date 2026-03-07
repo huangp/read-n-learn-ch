@@ -24,7 +24,12 @@ const LINKS_FILE = 'links.tar.bz2';
 
 const OUT_DIR = path.join(__dirname, '..', 'assets', 'dict');
 const TEMP_DIR = path.join(__dirname, '..', 'temp');
+const DOWNLOADS_DIR = path.join(__dirname, '..', 'downloads');
 const WORD_LIST_PATH = path.join(__dirname, '..', 'assets', 'dict', 'cedict-full.json');
+
+// Cache paths
+const SENTENCES_CACHE_TAR = path.join(DOWNLOADS_DIR, SENTENCES_FILE);
+const LINKS_CACHE_TAR = path.join(DOWNLOADS_DIR, LINKS_FILE);
 
 // Target: 50MB examples file
 const MAX_WORDS = 50000;  // Top 50,000 words
@@ -220,34 +225,48 @@ async function buildExamples() {
   fs.mkdirSync(TEMP_DIR, { recursive: true });
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  // Download Tatoeba data
-  const sentencesTar = path.join(TEMP_DIR, SENTENCES_FILE);
-  const linksTar = path.join(TEMP_DIR, LINKS_FILE);
+  // Download Tatoeba data (use cache if available)
   const sentencesPath = path.join(TEMP_DIR, 'sentences.csv');
   const linksPath = path.join(TEMP_DIR, 'links.csv');
 
-  // Check if already downloaded
+  // Check if already extracted
   if (!fs.existsSync(sentencesPath)) {
-    if (!fs.existsSync(sentencesTar)) {
-      if (!download(TATOEBA_BASE_URL + SENTENCES_FILE, sentencesTar)) {
+    // Check cache first
+    if (fs.existsSync(SENTENCES_CACHE_TAR)) {
+      console.log('[examples] Using cached sentences.tar.bz2 (delete downloads/sentences.tar.bz2 to force re-download)');
+      fs.copyFileSync(SENTENCES_CACHE_TAR, path.join(TEMP_DIR, SENTENCES_FILE));
+    } else {
+      console.log('[examples] Downloading sentences.tar.bz2...');
+      fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+      if (!download(TATOEBA_BASE_URL + SENTENCES_FILE, SENTENCES_CACHE_TAR)) {
         console.error('[examples] Failed to download sentences');
         process.exit(1);
       }
+      fs.copyFileSync(SENTENCES_CACHE_TAR, path.join(TEMP_DIR, SENTENCES_FILE));
     }
-    if (!extractTarBz2(sentencesTar, TEMP_DIR)) {
+    
+    if (!extractTarBz2(path.join(TEMP_DIR, SENTENCES_FILE), TEMP_DIR)) {
       console.error('[examples] Failed to extract sentences');
       process.exit(1);
     }
   }
 
   if (!fs.existsSync(linksPath)) {
-    if (!fs.existsSync(linksTar)) {
-      if (!download(TATOEBA_BASE_URL + LINKS_FILE, linksTar)) {
+    // Check cache first
+    if (fs.existsSync(LINKS_CACHE_TAR)) {
+      console.log('[examples] Using cached links.tar.bz2 (delete downloads/links.tar.bz2 to force re-download)');
+      fs.copyFileSync(LINKS_CACHE_TAR, path.join(TEMP_DIR, LINKS_FILE));
+    } else {
+      console.log('[examples] Downloading links.tar.bz2...');
+      fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+      if (!download(TATOEBA_BASE_URL + LINKS_FILE, LINKS_CACHE_TAR)) {
         console.error('[examples] Failed to download links');
         process.exit(1);
       }
+      fs.copyFileSync(LINKS_CACHE_TAR, path.join(TEMP_DIR, LINKS_FILE));
     }
-    if (!extractTarBz2(linksTar, TEMP_DIR)) {
+    
+    if (!extractTarBz2(path.join(TEMP_DIR, LINKS_FILE), TEMP_DIR)) {
       console.error('[examples] Failed to extract links');
       process.exit(1);
     }

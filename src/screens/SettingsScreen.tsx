@@ -4,6 +4,7 @@ import {
   ScrollView,
   View,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import {
   Appbar,
@@ -13,11 +14,13 @@ import {
   Text,
   Surface,
   RadioButton,
+  Button,
 } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootStackParamList } from '../types';
+import { useSubscriptionStore } from '../store/subscriptionStore';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -78,6 +81,32 @@ export default function SettingsScreen() {
       console.log(`Debug mode ${newValue ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error saving debug mode:', error);
+    }
+  };
+
+  const clearSubscriptionCache = async () => {
+    try {
+      // Clear subscription store state
+      useSubscriptionStore.setState({
+        status: {
+          isActive: false,
+          isTrial: false,
+          willRenew: false,
+          hasCloudAccess: false,
+        },
+        products: [],
+        isLoading: false,
+        isPurchasing: false,
+        lastError: null,
+      });
+      
+      // Clear persisted storage
+      await AsyncStorage.removeItem('subscription-storage');
+      
+      Alert.alert('Cache Cleared', 'Subscription cache has been cleared. Restart the app to reload subscription data.');
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      Alert.alert('Error', 'Failed to clear cache');
     }
   };
 
@@ -180,6 +209,13 @@ export default function SettingsScreen() {
                 description="Query SQLite database directly"
                 onPress={() => navigation.navigate('DebugDatabase')}
                 right={props => <List.Icon {...props} icon="database" />}
+              />
+              <Divider />
+              <List.Item
+                title="Clear Subscription Cache"
+                description="Clear RevenueCat and subscription data"
+                onPress={clearSubscriptionCache}
+                right={props => <List.Icon {...props} icon="delete" />}
               />
             </>
           )}

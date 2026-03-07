@@ -62,3 +62,4 @@ tmp/
 # Generated dictionary data (rebuild with: npm run build:dict)
 assets/dict/
 
+downloads/

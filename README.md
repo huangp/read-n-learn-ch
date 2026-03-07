@@ -152,6 +152,20 @@ The app is configured for iPad with:
 - Support for all orientations (portrait/landscape)
 - Split-screen / multitasking support (`requireFullScreen: false`)
 
+## TODO
+
+### App Store Connect - Subscription Metadata
+- [ ] Add Subscription Display Name for Monthly Subscription
+- [ ] Add Subscription Display Name for Yearly Subscription
+- [ ] Add Description for Monthly Subscription
+- [ ] Add Description for Yearly Subscription
+- [ ] Upload Screenshot for Monthly Subscription (review requirement)
+- [ ] Upload Screenshot for Yearly Subscription (review requirement)
+- [ ] Add Privacy Policy URL in App Information (required for IAP)
+- [ ] Verify RevenueCat product status changes from "MISSING_METADATA" to "OK"
+
+**Note**: These items are required before the subscription products become available to users. Status currently shows "Action is needed from the developer before a product can be made to users (state: 'MISSING_METADATA')".
+
 ## License
 
 MIT

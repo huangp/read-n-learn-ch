@@ -7,6 +7,7 @@ import { PaperProvider } from 'react-native-paper';
 import AppNavigator from './src/navigation/AppNavigator';
 import { loadCoreDictionary, loadFullDictionary } from './src/services/dictionaryLoader';
 import CharacterRecognitionService from './src/services/characterRecognition';
+import { useSubscriptionStore } from './src/store/subscriptionStore';
 
 export default function App() {
   // Preload dictionary data at startup so lookups are instant
@@ -16,6 +17,12 @@ export default function App() {
     // Initialize character recognition database
     CharacterRecognitionService.initialize().catch(error => {
       console.error('Failed to initialize character recognition service:', error);
+    });
+    
+    // Initialize subscription manager (RevenueCat)
+    const initializeSubscription = useSubscriptionStore.getState().initialize;
+    initializeSubscription().catch(error => {
+      console.error('Failed to initialize subscription service:', error);
     });
   }, []);
 

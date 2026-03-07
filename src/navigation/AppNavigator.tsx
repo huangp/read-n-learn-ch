@@ -10,6 +10,7 @@ import CameraScreen from '../screens/CameraScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharacterBrowseScreen from '../screens/CharacterBrowseScreen';
 import DebugDatabaseScreen from '../screens/DebugDatabaseScreen';
+import SubscriptionScreen from '../screens/SubscriptionScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -68,6 +69,11 @@ export default function AppNavigator() {
           name="DebugDatabase"
           component={DebugDatabaseScreen}
           options={{ title: 'Debug Database' }}
+        />
+        <Stack.Screen
+          name="Subscription"
+          component={SubscriptionScreen}
+          options={{ title: 'Subscription' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

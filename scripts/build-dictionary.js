@@ -19,20 +19,34 @@ const CEDICT_URL =
 
 const HSK_DIR = path.join(__dirname, '..', 'assets', 'hsk');
 const OUT_DIR = path.join(__dirname, '..', 'assets', 'dict');
+const DOWNLOADS_DIR = path.join(__dirname, '..', 'downloads');
+const CEDICT_CACHE_FILE = path.join(DOWNLOADS_DIR, 'cedict_1_0_ts_utf-8_mdbg.txt.gz');
 
 // ---- Helpers ---------------------------------------------------------------
 
 /** Download a URL via curl (MDBG needs a User-Agent header). Returns a Buffer. */
-function download(url) {
-  const tmpFile = path.join(OUT_DIR, '_cedict_download.tmp.gz');
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  execSync(`curl -L -o "${tmpFile}" -A "Mozilla/5.0" "${url}"`, {
+function download(url, outputPath) {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  execSync(`curl -L -o "${outputPath}" -A "Mozilla/5.0" "${url}"`, {
     timeout: 60000,
     stdio: 'inherit',
   });
-  const buf = fs.readFileSync(tmpFile);
-  fs.unlinkSync(tmpFile);
-  return buf;
+}
+
+/** Get CC-CEDICT data, using cache if available */
+function getCedictData() {
+  let gzBuf;
+  
+  if (fs.existsSync(CEDICT_CACHE_FILE)) {
+    console.log('  Using cached CC-CEDICT (delete downloads/cedict_1_0_ts_utf-8_mdbg.txt.gz to force re-download)');
+    gzBuf = fs.readFileSync(CEDICT_CACHE_FILE);
+  } else {
+    console.log('  Downloading CC-CEDICT...');
+    download(CEDICT_URL, CEDICT_CACHE_FILE);
+    gzBuf = fs.readFileSync(CEDICT_CACHE_FILE);
+  }
+  
+  return gzBuf;
 }
 
 /** Convert numbered pinyin (e.g. "pin1 yin1") to tone-marked pinyin. */
@@ -162,10 +176,10 @@ function main() {
   const hskMap = loadHSKWords();
   console.log(`  Total HSK words: ${hskMap.size}\n`);
 
-  // 2. Download CC-CEDICT
-  console.log('Step 2: Downloading CC-CEDICT...');
-  const gzBuf = download(CEDICT_URL);
-  console.log(`  Downloaded ${(gzBuf.length / 1024 / 1024).toFixed(1)} MB (gzipped)`);
+  // 2. Get CC-CEDICT (from cache or download)
+  console.log('Step 2: Getting CC-CEDICT...');
+  const gzBuf = getCedictData();
+  console.log(`  ${(gzBuf.length / 1024 / 1024).toFixed(1)} MB (gzipped)`);
 
   const txtBuf = zlib.gunzipSync(gzBuf);
   console.log(`  Uncompressed ${(txtBuf.length / 1024 / 1024).toFixed(1)} MB\n`);
