@@ -10,7 +10,8 @@
     "test": "jest",
     "build:dict": "node scripts/build-dictionary.js && node scripts/build-examples.js",
     "build:examples": "node scripts/build-examples.js",
-    "reset:db": "node scripts/reset-db.js"
+    "reset:db": "node scripts/reset-db.js",
+    "generate:api": "openapi --input ./api-spec.yaml --output ./src/api/generated --client fetch"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -19,12 +20,15 @@
     "@react-navigation/stack": "^7.7.2",
     "babel-preset-expo": "^54.0.10",
     "expo": "~54.0.33",
+    "expo-application": "~7.0.8",
     "expo-build-properties": "~1.0.10",
     "expo-camera": "^17.0.10",
+    "expo-device": "~8.0.10",
     "expo-document-picker": "^14.0.8",
     "expo-file-system": "^19.0.21",
     "expo-image-picker": "^17.0.10",
     "expo-pdf-text-extract": "^1.0.1",
+    "expo-secure-store": "~15.0.8",
     "expo-sqlite": "^16.0.10",
     "expo-status-bar": "~3.0.9",
     "mammoth": "^1.11.0",
@@ -46,6 +50,7 @@
     "@types/react": "~19.1.0",
     "babel-preset-expo": "~13.0.0",
     "jest": "^30.2.0",
+    "openapi-typescript-codegen": "^0.30.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.2"

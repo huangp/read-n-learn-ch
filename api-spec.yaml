@@ -1,0 +1,519 @@
+openapi: 3.0.3
+info:
+  title: Read and Learn Chinese API
+  description: API for Read and Learn Chinese - Document management, vocabulary lookup, and document text extraction
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: https://{api-id}.execute-api.{region}.amazonaws.com/prod
+    variables:
+      api-id:
+        description: API Gateway ID
+      region:
+        default: us-east-1
+        description: AWS Region
+
+security:
+  - bearerAuth: []
+
+paths:
+  /key:
+    post:
+      summary: Get API Key
+      description: Request an API key for authenticating subsequent requests. Validates device and bundle ID.
+      operationId: getApiKey
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyRequest'
+      responses:
+        '200':
+          description: API key generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyResponse'
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - invalid bundle ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /objects:
+    get:
+      summary: List Objects
+      description: List all objects stored in the S3 bucket
+      operationId: listObjects
+      tags:
+        - Storage
+      responses:
+        '200':
+          description: List of objects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectListResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /objects/{key}:
+    get:
+      summary: Get Object
+      description: Retrieve an object from S3 by key
+      operationId: getObject
+      tags:
+        - Storage
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Object key (URL-encoded)
+      responses:
+        '200':
+          description: Object retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+        '404':
+          description: Object not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    put:
+      summary: Update Object
+      description: Update an existing object in S3. Only text/plain content is supported. The key must already exist in the bucket.
+      operationId: putObject
+      tags:
+        - Storage
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Object key (URL-encoded). Must already exist in the bucket.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutObjectRequest'
+      responses:
+        '200':
+          description: Object updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PutObjectResponse'
+        '404':
+          description: Object key does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /lookup:
+    post:
+      summary: Lookup Chinese Vocabulary
+      description: Lookup a Chinese word or character and get its definition, pinyin, stroke order, and examples
+      operationId: lookupVocabulary
+      tags:
+        - Vocabulary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookupRequest'
+      responses:
+        '200':
+          description: Vocabulary lookup successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResponse'
+        '400':
+          description: Bad request - missing vocabulary field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /extract:
+    post:
+      summary: Extract Text from Documents
+      description: Upload PDF or image files and extract Chinese text content with formatting preserved
+      operationId: extractDocuments
+      tags:
+        - Document Extraction
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Document files to extract text from (PDF, JPG, PNG, TIFF, TXT). Text files are processed immediately, other files use Textract.
+      responses:
+        '200':
+          description: Documents uploaded successfully, processing started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionUploadResponse'
+        '400':
+          description: Bad request - invalid file type or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /extract/{jobId}:
+    get:
+      summary: Get Extraction Job Status
+      description: Poll for the status and results of a document extraction job
+      operationId: getExtractionStatus
+      tags:
+        - Document Extraction
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Job ID returned from POST /extract
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionStatusResponse'
+        '400':
+          description: Bad request - missing job ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+      description: API key obtained from POST /key endpoint
+
+  schemas:
+    KeyRequest:
+      type: object
+      required:
+        - deviceId
+        - bundleId
+        - appVersion
+      properties:
+        deviceId:
+          type: string
+          description: Unique device identifier
+        bundleId:
+          type: string
+          description: iOS app bundle ID
+          example: com.github.huangp.readnlearnch
+        appVersion:
+          type: string
+          description: App version
+          example: 1.0.0
+        attestation:
+          type: string
+          description: Apple App Attest (optional)
+        challenge:
+          type: string
+          description: Challenge for App Attest (optional)
+
+    KeyResponse:
+      type: object
+      properties:
+        apiKey:
+          type: string
+          description: API key for authentication
+        expiresAt:
+          type: integer
+          format: int64
+          description: Expiration timestamp (Unix epoch in milliseconds)
+        issuedAt:
+          type: integer
+          format: int64
+          description: Issue timestamp (Unix epoch in milliseconds)
+
+    ObjectListResponse:
+      type: object
+      properties:
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjectInfo'
+        count:
+          type: integer
+          description: Number of objects
+
+    ObjectInfo:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Object key
+        size:
+          type: integer
+          description: Object size in bytes
+        lastModified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+
+    ObjectResponse:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Article title (from filename)
+        body:
+          type: string
+          description: Article content
+
+    PutObjectRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Article title (optional, will preserve existing if not provided)
+        body:
+          type: string
+          description: Article content
+
+    PutObjectResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Object updated successfully
+        key:
+          type: string
+          description: Object key
+        size:
+          type: integer
+          description: Object size in bytes after update
+        lastModified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        contentType:
+          type: string
+          description: Content type
+
+    LookupRequest:
+      type: object
+      required:
+        - vocabulary
+      properties:
+        vocabulary:
+          type: string
+          description: Chinese word or character to lookup
+          example: 你好
+
+    LookupResponse:
+      type: object
+      properties:
+        vocabulary:
+          type: string
+          description: The input vocabulary
+        pinyin:
+          type: string
+          description: Pinyin romanization with tone marks
+          example: nǐ hǎo
+        definition:
+          type: string
+          description: English definition
+        strokeOrder:
+          type: string
+          description: Detailed stroke order information
+        examples:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExampleSentence'
+        cached:
+          type: boolean
+          description: Whether the result was retrieved from cache
+
+    ExampleSentence:
+      type: object
+      properties:
+        chinese:
+          type: string
+          description: Chinese sentence
+        pinyin:
+          type: string
+          description: Pinyin with tone marks
+        english:
+          type: string
+          description: English translation
+
+    ExtractionUploadResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: Job ID for polling status
+        status:
+          type: string
+          enum:
+            - processing
+          description: Job status
+        message:
+          type: string
+          description: Status message
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileInfo'
+
+    FileInfo:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: Original filename
+        size:
+          type: integer
+          description: File size in bytes
+
+    ExtractionStatusResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - uploading
+            - processing
+            - completed
+            - failed
+          description: Current job status
+        contentHash:
+          type: string
+          description: SHA-256 hash of extracted content, used as S3 key (only when status is 'completed')
+        metadata:
+          $ref: '#/components/schemas/ExtractionMetadata'
+        error:
+          type: string
+          description: Error message (only when status is 'failed')
+
+    ExtractionMetadata:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+          description: Number of pages processed
+        processingTime:
+          type: number
+          format: float
+          description: Processing time in seconds
+        detectedLanguages:
+          type: array
+          items:
+            type: string
+          description: Detected languages (e.g., ['zh', 'en'])
+          example:
+            - zh
+            - en
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message

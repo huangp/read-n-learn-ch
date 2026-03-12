@@ -76,7 +76,7 @@ export default function HomeScreen() {
   const renderArticle = ({ item }: { item: Article }) => {
     const meta = metaMap.get(item.id);
 
-    // Determine dominant HSK level
+    // Build HSK level counts display
     let hskLabel = '';
     if (meta) {
       const levels = [
@@ -87,9 +87,9 @@ export default function HomeScreen() {
         { level: 5, count: meta.hsk5Count },
         { level: 6, count: meta.hsk6Count },
       ];
-      const dominant = levels.reduce((a, b) => (b.count > a.count ? b : a), levels[0]);
-      if (dominant.count > 0) {
-        hskLabel = `HSK${dominant.level}`;
+      const nonZeroLevels = levels.filter(l => l.count > 0);
+      if (nonZeroLevels.length > 0) {
+        hskLabel = nonZeroLevels.map(l => `HSK${l.level}: ${l.count}`).join(', ');
       }
     }
 
