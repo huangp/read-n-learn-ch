@@ -93,7 +93,6 @@ export default function ArticleEditorScreen() {
     }
   };
 
-  const charCount = content.length;
   const chineseCharCount = (content.match(/[\u4e00-\u9fa5]/g) || []).length;
 
   const handleImportDocument = async () => {

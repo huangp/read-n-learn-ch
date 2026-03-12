@@ -343,6 +343,7 @@ class CharacterRecognitionService {
     return this.vocabularyDBUtils.getVocabularyByTag(tagId);
   }
 
+  // TODO unused
   async autoTagVocabularyByHSK(vocabularyId: string, hskLevel: number | null): Promise<void> {
     if (!this.db || !this.vocabularyDBUtils) {
       console.warn('Database not initialized, cannot auto-tag vocabulary', this.vocabularyDBUtils);
