@@ -11,7 +11,8 @@
     "build:dict": "node scripts/build-dictionary.js && node scripts/build-examples.js",
     "build:examples": "node scripts/build-examples.js",
     "reset:db": "node scripts/reset-db.js",
-    "generate:api": "openapi --input ./api-spec.yaml --output ./src/api/generated --client fetch"
+    "generate:api": "openapi --input ./api-spec.yaml --output ./src/api/generated --client fetch",
+    "mock-server": "node server/mock-server.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -49,6 +50,8 @@
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "~13.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "jest": "^30.2.0",
     "openapi-typescript-codegen": "^0.30.0",
     "ts-jest": "^29.4.6",

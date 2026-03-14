@@ -83,14 +83,25 @@ export class ApiClient {
         appVersion: deviceInfo.appVersion,
       };
 
-      // Call /key endpoint without authentication
-      const response = await AuthenticationService.getApiKey(keyRequest);
+      // Temporarily disable token for /key endpoint (unauthenticated)
+      // The /key endpoint is defined with security: [] in the OpenAPI spec,
+      // but the generated client doesn't respect this, so we manually disable auth
+      const originalToken = OpenAPI.TOKEN;
+      OpenAPI.TOKEN = undefined;
 
-      if (!response.apiKey || !response.expiresAt) {
-        throw new Error('Invalid API key response');
+      try {
+        // Call /key endpoint without authentication
+        const response = await AuthenticationService.getApiKey(keyRequest);
+
+        if (!response.apiKey || !response.expiresAt) {
+          throw new Error('Invalid API key response');
+        }
+
+        await TokenStorage.saveToken(response.apiKey, response.expiresAt);
+      } finally {
+        // Restore token resolver
+        OpenAPI.TOKEN = originalToken;
       }
-
-      await TokenStorage.saveToken(response.apiKey, response.expiresAt);
     } catch (error) {
       console.error('[ApiClient] Failed to refresh token:', error);
       await TokenStorage.deleteToken();

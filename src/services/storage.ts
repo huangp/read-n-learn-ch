@@ -85,7 +85,7 @@ export class StorageService {
       }
 
       const newArticle: Article = {
-        id: articleId || this.generateId(),
+        id: articleId || this.generateId(formData.content),
         ...formData,
         createdAt: now,
         updatedAt: now,
@@ -139,8 +139,13 @@ export class StorageService {
     }
   }
 
-  private static generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  private static generateId(content: string): string {
+    // Simple djb2 hash for content-based ID
+    let hash = 5381;
+    for (let i = 0; i < content.length; i++) {
+      hash = ((hash << 5) + hash) + content.charCodeAt(i);
+    }
+    return Math.abs(hash).toString(36);
   }
 
   private static countChineseWords(text: string): number {

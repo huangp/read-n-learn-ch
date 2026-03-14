@@ -40,7 +40,7 @@ export default function ArticleDetailScreen() {
   // Word lookup state
   const [selectedWord, setSelectedWord] = useState<SegmentedWord | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   // Character recognition state
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
   const [hasCompleted, setHasCompleted] = useState(false);
@@ -249,7 +249,7 @@ export default function ArticleDetailScreen() {
   }, [currentPage, totalPages, width, saveProgress]);
 
   const handleWordPress = async (word: SegmentedWord) => {
-    DebugService.log('ARTICLE_VIEW', 'Word pressed', { 
+    DebugService.log('WORD_LOOKUP', 'Word pressed', { 
       word: word.text, 
       start: word.start, 
       end: word.end,

@@ -21,6 +21,7 @@ security:
 paths:
   /key:
     post:
+      security: []
       summary: Get API Key
       description: Request an API key for authenticating subsequent requests. Validates device and bundle ID.
       operationId: getApiKey

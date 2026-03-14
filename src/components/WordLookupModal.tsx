@@ -1,16 +1,21 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   ScrollView,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
+import { Snackbar, Modal, Portal } from 'react-native-paper';
 import { SegmentedWord, ExampleSentence } from '../types';
 import type { WordLookupResult } from '../data/dictionary';
 import { searchDictionarySync, getExamplesForWord } from '../services/dictionaryLoader';
+import { useSubscription } from '../hooks/useSubscription';
+import { PaywallModal } from './subscription/PaywallModal';
+import { ApiClient } from '../api/client';
+import type { LookupResponse } from '../api/generated';
 
 interface WordLookupModalProps {
   visible: boolean;
@@ -20,6 +25,9 @@ interface WordLookupModalProps {
   onClose: () => void;
 }
 
+// Cache for API lookup results
+const apiLookupCache = new Map<string, LookupResponse>();
+
 export default function WordLookupModal({
   visible,
   word,
@@ -27,12 +35,20 @@ export default function WordLookupModal({
   onClose,
 }: WordLookupModalProps) {
   const { height } = useWindowDimensions();
+  const { isActive, hasCloudAccess } = useSubscription();
 
   // Resolve the actual text to look up
   const text = word?.text ?? wordText ?? null;
 
   // State for example sentences
   const [examples, setExamples] = useState<ExampleSentence[]>([]);
+
+  // State for API lookup
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [apiResult, setApiResult] = useState<LookupResponse | null>(null);
+  const [isLoadingApi, setIsLoadingApi] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [useApiResults, setUseApiResults] = useState(false);
 
   // Synchronous lookup - dictionary is preloaded at app startup
   const lookup: WordLookupResult | null = useMemo(() => {
@@ -110,7 +126,87 @@ export default function WordLookupModal({
     getExamplesForWord(text, 3).then(setExamples);
   }, [text]);
 
-  if (!text) return null;
+  // Reset API state when modal closes or word changes
+  useEffect(() => {
+    console.log('[WordLookupModal] Reset effect - visible:', visible, 'text:', text);
+    if (!visible) {
+      console.log('[WordLookupModal] Resetting API state because visible is false');
+      setApiResult(null);
+      setUseApiResults(false);
+      setApiError(null);
+      setIsLoadingApi(false);
+    }
+  }, [visible, text]);
+
+  // Check cache when word changes
+  useEffect(() => {
+    if (text && apiLookupCache.has(text)) {
+      setApiResult(apiLookupCache.get(text)!);
+      setUseApiResults(true);
+    }
+  }, [text]);
+
+  const handleApiLookup = useCallback(async () => {
+    if (!isActive) {
+      setShowPaywall(true);
+      console.log("---- inside first block");
+      return;
+    }
+
+    // Check cache first
+    if (text && apiLookupCache.has(text)) {
+      setApiResult(apiLookupCache.get(text)!);
+      setUseApiResults(true);
+      return;
+    }
+
+    setIsLoadingApi(true);
+    setApiError(null);
+
+    try {
+      const result = await ApiClient.lookupVocabulary(text || '');
+      
+      // Cache the result
+      if (text) {
+        apiLookupCache.set(text, result);
+      }
+      
+      setApiResult(result);
+      setUseApiResults(true);
+    } catch (error) {
+      console.error('Cloud lookup failed:', error);
+      console.error('Error details:', (error as Error).message);
+      setApiError('Cloud lookup failed. Showing local results.');
+      // Keep showing local results
+    } finally {
+      setIsLoadingApi(false);
+    }
+  }, [isActive, text]);
+
+  const toggleSource = useCallback(() => {
+    setUseApiResults(!useApiResults);
+  }, [useApiResults]);
+
+  // console.log('[WordLookupModal] Render - text:', text, 'word:', word, 'wordText:', wordText, 'visible:', visible);
+
+  if (!text) {
+    return (
+      <Portal>
+        <Modal
+          visible={visible}
+          onDismiss={onClose}
+          contentContainerStyle={[styles.modalContainer, { height: height * 0.6 }]}
+        >
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, color: '#666' }}>No word selected</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      </Portal>
+    );
+  }
 
   // ---- Sub-renderers ----
 
@@ -131,7 +227,64 @@ export default function WordLookupModal({
     </View>
   );
 
+  const renderApiToggle = () => {
+    // Don't show toggle if no API result yet
+    if (!apiResult && !isLoadingApi) {
+      return (
+        <TouchableOpacity
+          style={styles.apiLookupButton}
+          onPress={handleApiLookup}
+          disabled={isLoadingApi}
+        >
+          {isLoadingApi ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.apiLookupButtonText}>
+              {isActive ? 'Cloud Lookup' : 'Cloud Lookup (Pro)'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      );
+    }
+
+    // Show toggle when API result is available
+    return (
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[styles.toggleButton, !useApiResults && styles.toggleButtonActive]}
+          onPress={() => setUseApiResults(false)}
+        >
+          <Text style={[styles.toggleButtonText, !useApiResults && styles.toggleButtonTextActive]}>
+            Local
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, useApiResults && styles.toggleButtonActive]}
+          onPress={() => setUseApiResults(true)}
+        >
+          <Text style={[styles.toggleButtonText, useApiResults && styles.toggleButtonTextActive]}>
+            Cloud
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderDefinitions = () => {
+    // Use API results if toggled and available
+    if (useApiResults && apiResult) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Definitions (Cloud)</Text>
+          {apiResult.definition ? (
+            <Text style={styles.definition}>{apiResult.definition}</Text>
+          ) : (
+            <Text style={styles.emptyHint}>No definition available from cloud</Text>
+          )}
+        </View>
+      );
+    }
+
     // Filter out "also ..." alternate reading entries — those are shown in character breakdown
     const defs = (lookup?.definitions || []).filter(d => !d.match(/^also\s+\S+?:\s+/));
 
@@ -157,6 +310,27 @@ export default function WordLookupModal({
   };
 
   const renderExamples = () => {
+    // Use API examples if available and toggled
+    if (useApiResults && apiResult?.examples && apiResult.examples.length > 0) {
+      return (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Example Sentences (Cloud)</Text>
+          {apiResult.examples.map((ex, i) => (
+            <View key={i} style={styles.exampleContainer}>
+              <Text style={styles.exampleChinese}>{ex.chinese}</Text>
+              {ex.pinyin ? (
+                <Text style={styles.examplePinyin}>{ex.pinyin}</Text>
+              ) : null}
+              {ex.english ? (
+                <Text style={styles.exampleEnglish}>{ex.english}</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    // Fall back to local examples
     if (examples.length === 0) return null;
 
     return (
@@ -178,6 +352,9 @@ export default function WordLookupModal({
   };
 
   const renderCharacterBreakdown = () => {
+    // Don't show character breakdown for API results
+    if (useApiResults) return null;
+
     if (!lookup?.characters || lookup.characters.length <= 1) return null;
 
     return (
@@ -207,25 +384,27 @@ export default function WordLookupModal({
     );
   };
 
+  const renderStrokeOrder = () => {
+    if (!useApiResults || !apiResult?.strokeOrder) return null;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Stroke Order</Text>
+        <Text style={styles.strokeOrderText}>{apiResult.strokeOrder}</Text>
+      </View>
+    );
+  };
+
   // ---- Modal ----
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <TouchableOpacity
-          style={styles.backdropTouchable}
-          onPress={onClose}
-          activeOpacity={1}
+    <>
+      <Portal>
+        <Modal
+          visible={visible}
+          onDismiss={onClose}
+          contentContainerStyle={[styles.modalContainer, { height: height * 0.6 }]}
         >
-          <View style={styles.spacer} />
-        </TouchableOpacity>
-
-        <View style={[styles.modalContainer, { height: height * 0.6 }]}>
           <View style={styles.dragHandle} />
 
           <ScrollView
@@ -234,7 +413,9 @@ export default function WordLookupModal({
             showsVerticalScrollIndicator={true}
           >
             {renderHeader()}
+            {renderApiToggle()}
             {renderDefinitions()}
+            {renderStrokeOrder()}
             {renderCharacterBreakdown()}
             {renderExamples()}
           </ScrollView>
@@ -242,31 +423,37 @@ export default function WordLookupModal({
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+        </Modal>
+      </Portal>
+
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        featureName="Cloud Dictionary Lookup"
+      />
+
+      <Snackbar
+        visible={!!apiError}
+        onDismiss={() => setApiError(null)}
+        duration={3000}
+        action={{
+          label: 'Dismiss',
+          onPress: () => setApiError(null),
+        }}
+      >
+        {apiError}
+      </Snackbar>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  backdropTouchable: {
-    flex: 1,
-  },
-  spacer: {
-    flex: 1,
-  },
   modalContainer: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 20,
+    margin: 20,
   },
   dragHandle: {
     width: 40,
@@ -425,5 +612,58 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // New styles for API lookup
+  apiLookupButton: {
+    backgroundColor: '#5856D6',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginBottom: 16,
+    minWidth: 140,
+    alignItems: 'center',
+  },
+  apiLookupButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 16,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 4,
+    alignSelf: 'center',
+  },
+  toggleButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  toggleButtonTextActive: {
+    color: '#333',
+    fontWeight: '600',
+  },
+  strokeOrderText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#333',
+    fontFamily: 'monospace',
   },
 });

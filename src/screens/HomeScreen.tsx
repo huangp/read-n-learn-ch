@@ -120,7 +120,7 @@ export default function HomeScreen() {
                 {meta.unknownChars > 0 && (
                   <>
                     <Text variant="bodySmall" style={styles.separator}>•</Text>
-                    <Text variant="bodySmall" style={[styles.metaText, styles.newText]}>{meta.unknownChars} new</Text>
+                    <Text variant="bodySmall" style={[styles.metaText, styles.newText]}>{meta.unknownChars} unfamiliar</Text>
                   </>
                 )}
               </>
