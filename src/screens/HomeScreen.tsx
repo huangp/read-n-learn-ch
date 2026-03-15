@@ -17,12 +17,14 @@ import {
   IconButton,
   Icon,
   useTheme,
+  Snackbar,
 } from 'react-native-paper';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Article, RootStackParamList } from '../types';
 import { StorageService } from '../services/storage';
 import CharacterRecognitionService, { ArticleMeta } from '../services/characterRecognition';
+import { SyncButton } from '../components/SyncButton';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -36,6 +38,8 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const loadArticles = async () => {
     try {
@@ -64,6 +68,20 @@ export default function HomeScreen() {
     await loadArticles();
     setRefreshing(false);
   };
+
+  const handleSyncComplete = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+    // Refresh articles list after sync
+    loadArticles();
+  };
+
+  const handleShowMessage = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
+  const onDismissSnackbar = () => setSnackbarVisible(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -150,6 +168,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.Content title="Read and Learn Chinese" />
+        <SyncButton onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} />
         <Appbar.Action icon="translate" onPress={() => navigation.navigate('CharacterBrowser')} />
         <Appbar.Action icon="crown" onPress={() => navigation.navigate('Subscription')} />
         {/*<Appbar.Action icon="tag-multiple" onPress={() => navigation.navigate('TagManagement')} />*/}
@@ -198,6 +217,14 @@ export default function HomeScreen() {
         style={styles.fab}
         onPress={() => navigation.navigate('ArticleEditor', {})}
       />
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={onDismissSnackbar}
+        duration={3000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
