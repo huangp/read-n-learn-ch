@@ -45,7 +45,6 @@ export interface ArticleMeta {
 }
 
 export interface Tag {
-  id: number;
   name: string;
   description?: string;
   color?: string;
@@ -53,7 +52,7 @@ export interface Tag {
 
 export interface CharacterTag {
   character: string;
-  tagId: number;
+  tagName: string;
 }
 
 // Database error types

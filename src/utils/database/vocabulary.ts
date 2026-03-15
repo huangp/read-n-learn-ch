@@ -3,9 +3,11 @@ import {DB_NAMES, getDatabase, openDatabase} from "./connection";
 import {LRUCache} from "../lruCache";
 import {Tag} from "./types";
 
+const learningTagName = 'Learning';
+
 export class VocabularyDBUtils {
     private db: SQLite.SQLiteDatabase;
-    private vocabularyByTagCache = new LRUCache<number, string[]>(50);
+    private vocabularyByTagCache = new LRUCache<string, string[]>(50);
 
     constructor(db: SQLite.SQLiteDatabase) {
         this.db = db;
@@ -101,15 +103,15 @@ export class VocabularyDBUtils {
         return result;
     }
 
-    async addTagToVocabulary(vocabularyId: string, tagId: number): Promise<boolean> {
+    async addTagToVocabulary(vocabularyId: string, tagName: string): Promise<boolean> {
         if (!this.db) return false;
         try {
             await this.db.runAsync(
-                'INSERT OR IGNORE INTO vocabulary_tags (vocabulary_id, tag_id) VALUES (?, ?)',
-                [vocabularyId, tagId]
+                'INSERT OR IGNORE INTO vocabulary_tags (vocabulary_id, tag_name) VALUES (?, ?)',
+                [vocabularyId, tagName]
             );
             // Invalidate cache for this tag since vocabulary was added
-            this.vocabularyByTagCache.delete(tagId);
+            this.vocabularyByTagCache.delete(tagName);
             return true;
         } catch (error) {
             console.error('Error adding tag to vocabulary:', error);
@@ -117,16 +119,15 @@ export class VocabularyDBUtils {
         }
     }
 
-    async removeTagFromVocabulary(vocabularyId: string, tagId: number): Promise<boolean> {
+    async removeTagFromVocabulary(vocabularyId: string, tagName: string): Promise<boolean> {
         if (!this.db) return false;
         try {
             await this.db.runAsync(
-                'DELETE FROM vocabulary_tags WHERE vocabulary_id = ? AND tag_id = ?',
-                [vocabularyId, tagId]
+                'DELETE FROM vocabulary_tags WHERE vocabulary_id = ? AND tag_name = ?',
+                [vocabularyId, tagName]
             );
             // Invalidate cache for this tag since vocabulary was removed
-            // TODO: Also invalidate when vocabulary deletion is implemented
-            this.vocabularyByTagCache.delete(tagId);
+            this.vocabularyByTagCache.delete(tagName);
             return true;
         } catch (error) {
             console.error('Error removing tag from vocabulary:', error);
@@ -134,22 +135,22 @@ export class VocabularyDBUtils {
         }
     }
 
-    async getVocabularyByTag(tagId: number): Promise<string[]> {
+    async getVocabularyByTag(tagName: string): Promise<string[]> {
         // Check cache first
-        const cached = this.vocabularyByTagCache.get(tagId);
+        const cached = this.vocabularyByTagCache.get(tagName);
         if (cached !== undefined) {
             return cached;
         }
 
         if (!this.db) return [];
         const rows = await this.db.getAllAsync<{ vocabulary_id: string }>(
-            'SELECT vocabulary_id FROM vocabulary_tags WHERE tag_id = ? ORDER BY vocabulary_id',
-            [tagId]
+            'SELECT vocabulary_id FROM vocabulary_tags WHERE tag_name = ? ORDER BY vocabulary_id',
+            [tagName]
         );
         const result = rows.map(r => r.vocabulary_id);
 
         // Cache the result
-        this.vocabularyByTagCache.set(tagId, result);
+        this.vocabularyByTagCache.set(tagName, result);
 
         return result;
     }
@@ -216,11 +217,8 @@ export class VocabularyDBUtils {
      */
     async autoTagVocabularyAsLearning(vocabularyId: string): Promise<void> {
         if (!this.db) return;
-
-        const tag = await this.getTagByName('learning');
-        if (tag) {
-            await this.addTagToVocabulary(vocabularyId, tag.id);
-        }
+        // Use tag name directly as primary key
+        await this.addTagToVocabulary(vocabularyId, learningTagName);
     }
 
     /**
@@ -229,19 +227,8 @@ export class VocabularyDBUtils {
      */
     async removeLearningTag(vocabularyId: string): Promise<void> {
         if (!this.db) return;
-
-        const tag = await this.getTagByName('learning');
-        if (tag) {
-            await this.removeTagFromVocabulary(vocabularyId, tag.id);
-        }
-    }
-
-    async getTagByName(name: string): Promise<Tag | null> {
-        if (!this.db) return null;
-        return await this.db.getFirstAsync<Tag>(
-            'SELECT id, name, description, color FROM tags WHERE name = ?',
-            [name]
-        );
+        // Use tag name directly as primary key
+        await this.removeTagFromVocabulary(vocabularyId, learningTagName);
     }
 
     async getAllTags(): Promise<Tag[]> {
@@ -250,7 +237,7 @@ export class VocabularyDBUtils {
             return [];
         }
         return await this.db.getAllAsync<Tag>(
-            'SELECT id, name, description, color FROM tags ORDER BY name'
+            'SELECT name, description, color FROM tags ORDER BY name'
         );
     }
 }

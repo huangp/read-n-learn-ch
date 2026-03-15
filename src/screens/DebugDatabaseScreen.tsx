@@ -30,8 +30,8 @@ const QUICK_QUERIES = [
   { label: 'Examples', query: 'SELECT * FROM example_sentences LIMIT 20' },
   { label: 'Tag Counts', query: `SELECT t.name, COUNT(vt.vocabulary_id) as vocab_count 
 FROM tags t 
-LEFT JOIN vocabulary_tags vt ON t.id = vt.tag_id 
-GROUP BY t.id 
+LEFT JOIN vocabulary_tags vt ON t.name = vt.tag_name 
+GROUP BY t.name 
 ORDER BY vocab_count DESC` },
 ];
 

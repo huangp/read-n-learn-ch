@@ -5,7 +5,7 @@
 
 import { openDatabase, DB_NAMES } from './connection';
 import {
-  CHARACTER_RECOGNITION_SCHEMA,
+  CHARACTER_RECOGNITION_SCHEMA, DROP_USER_DATA_TABLES,
   SCHEMA_VERSIONS
 } from './schema';
 import { 
@@ -29,6 +29,8 @@ export async function initializeCharacterRecognitionDB(): Promise<void> {
   
   if (shouldRebuild) {
     console.log(`[DB] Building ${dbName} schema...`);
+    // TODO this will drop user data table. we should comment out this line to keep the data
+    // await executeBatch(dbName, DROP_USER_DATA_TABLES);
     await executeBatch(dbName, CHARACTER_RECOGNITION_SCHEMA);
     await setDBVersion(dbName, SCHEMA_VERSIONS.CHARACTER_RECOGNITION);
     console.log(`[DB] ${dbName} schema created`);

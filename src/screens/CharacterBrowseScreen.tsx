@@ -85,7 +85,7 @@ export default function CharacterBrowseScreen() {
   const dataColumns = width >= 768 ? 7 : 3;
   const numColumns = dataColumns + 1;
 
-  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
+  const [selectedTagName, setSelectedTagName] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [knownMap, setKnownMap] = useState<Map<string, boolean>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -101,11 +101,14 @@ export default function CharacterBrowseScreen() {
   });
 
   const currentWords = useMemo(() => {
-    if (selectedTagId) {
-      return tagCharacters.map(char => ({ word: char }));
+    if (selectedTagName) {
+      const tag = tags.find(t => t.name === selectedTagName);
+      if (tag) {
+        return tagCharacters.map(word => ({ word }));
+      }
     }
     return [];
-  }, [selectedTagId, tagCharacters]);
+  }, [selectedTagName, tagCharacters]);
 
   // Preload known status for all HSK words
   const allWordsRef = useRef<string[]>([]);
@@ -129,7 +132,7 @@ export default function CharacterBrowseScreen() {
     setTags(allTags);
   }, []);
 
-  const loadTagVocabulary = useCallback(async (tagId: number) => {
+  const loadTagVocabulary = useCallback(async (tagName: string) => {
     setLoading(true);
     
     try {
@@ -137,8 +140,8 @@ export default function CharacterBrowseScreen() {
       let vocabularyIds: string[];
 
       // Use vocabulary_tags table for tags
-      vocabularyIds = await CharacterRecognitionService.getVocabularyByTag(tagId);
-      console.log(`[TagFilter] Tag ${tagId}: loaded ${vocabularyIds.length} items`);
+      vocabularyIds = await CharacterRecognitionService.getVocabularyByTag(tagName);
+      console.log(`[TagFilter] Tag ${tagName}: loaded ${vocabularyIds.length} items`);
 
       setTagCharacters(vocabularyIds);
       
@@ -167,10 +170,10 @@ export default function CharacterBrowseScreen() {
   );
 
   useEffect(() => {
-    if (selectedTagId) {
-      loadTagVocabulary(selectedTagId);
+    if (selectedTagName) {
+      loadTagVocabulary(selectedTagName);
     }
-  }, [selectedTagId, loadTagVocabulary]);
+  }, [selectedTagName, loadTagVocabulary]);
 
   // Filtered list
   const filteredWords = useMemo(() => {
@@ -230,16 +233,16 @@ export default function CharacterBrowseScreen() {
 
 
   const renderTagTab = useCallback((tag: Tag) => {
-    const isSelected = selectedTagId === tag.id;
+    const isSelected = selectedTagName === tag.name;
     return (
       <Chip
-        key={tag.id}
+        key={tag.name}
         selected={isSelected}
         onPress={() => {
           if (isSelected) {
-            setSelectedTagId(null);
+            setSelectedTagName(null);
           } else {
-            setSelectedTagId(tag.id);
+            setSelectedTagName(tag.name);
           }
         }}
         style={[styles.tagChip, isSelected && { backgroundColor: '#FF9500' }]}
@@ -249,7 +252,7 @@ export default function CharacterBrowseScreen() {
         {tag.name}
       </Chip>
     );
-  }, [selectedTagId, setSelectedTagId]);
+  }, [selectedTagName, setSelectedTagName]);
 
   const renderFilterTab = useCallback((mode: FilterMode, label: string) => {
     const isSelected = filterMode === mode;

@@ -120,6 +120,13 @@ class CharacterRecognitionService {
           hsk_level: level
         }));
     await this.vocabularyDBUtils.insertVocabularyFromDictEntries(charEntries);
+    charEntries.forEach(async (charEntry) => {
+      try {
+        await this.autoTagVocabularyByHSK(charEntry.simplified, charEntry.hsk_level);
+      } catch (e) {
+        console.warn(`[HSK] processing failed to add tag to ${charEntry.simplified}`, e);
+      }
+    });
 
     console.log('[HSK] Pre-population complete');
   }
@@ -338,12 +345,11 @@ class CharacterRecognitionService {
     if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     return await this.vocabularyDBUtils.getAllTags();
   }
-  async getVocabularyByTag(tagId: number): Promise<string[]> {
+  async getVocabularyByTag(tagName: string): Promise<string[]> {
     if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
-    return this.vocabularyDBUtils.getVocabularyByTag(tagId);
+    return this.vocabularyDBUtils.getVocabularyByTag(tagName);
   }
 
-  // TODO unused
   async autoTagVocabularyByHSK(vocabularyId: string, hskLevel: number | null): Promise<void> {
     if (!this.db || !this.vocabularyDBUtils) {
       console.warn('Database not initialized, cannot auto-tag vocabulary', this.vocabularyDBUtils);
@@ -351,27 +357,13 @@ class CharacterRecognitionService {
     }
 
     const tagsToApply: string[] = [];
-    
+
     if (hskLevel && hskLevel >= 1 && hskLevel <= 6) {
       tagsToApply.push(`HSK${hskLevel}`);
-      
-      // Apply difficulty tags based on HSK level
-      if (hskLevel === 1) {
-        tagsToApply.push('beginner');
-      } else if (hskLevel <= 2) {
-        tagsToApply.push('simple');
-      } else if (hskLevel <= 4) {
-        tagsToApply.push('advanced');
-      } else {
-        tagsToApply.push('expert');
-      }
     }
 
     for (const tagName of tagsToApply) {
-      const tag = await this.vocabularyDBUtils.getTagByName(tagName);
-      if (tag) {
-        await this.vocabularyDBUtils.addTagToVocabulary(vocabularyId, tag.id);
-      }
+      await this.vocabularyDBUtils.addTagToVocabulary(vocabularyId, tagName);
     }
   }
 // Debug method to execute raw SQL queries

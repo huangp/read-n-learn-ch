@@ -104,22 +104,21 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
   );
 
   CREATE TABLE IF NOT EXISTS tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE NOT NULL,
+    name TEXT PRIMARY KEY,
     description TEXT,
     color TEXT
   );
 
   CREATE TABLE IF NOT EXISTS vocabulary_tags (
     vocabulary_id TEXT NOT NULL,
-    tag_id INTEGER NOT NULL,
-    PRIMARY KEY (vocabulary_id, tag_id),
+    tag_name TEXT NOT NULL,
+    PRIMARY KEY (vocabulary_id, tag_name),
     FOREIGN KEY (vocabulary_id) REFERENCES vocabulary(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+    FOREIGN KEY (tag_name) REFERENCES tags(name) ON DELETE CASCADE
   );
 
   CREATE INDEX IF NOT EXISTS idx_vocabulary_tags_vocab ON vocabulary_tags(vocabulary_id);
-  CREATE INDEX IF NOT EXISTS idx_vocabulary_tags_tag ON vocabulary_tags(tag_id);
+  CREATE INDEX IF NOT EXISTS idx_vocabulary_tags_tag ON vocabulary_tags(tag_name);
 
   INSERT OR IGNORE INTO tags (name, description) VALUES 
     ('HSK1', 'HSK Level 1'),
@@ -128,11 +127,8 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
     ('HSK4', 'HSK Level 4'),
     ('HSK5', 'HSK Level 5'),
     ('HSK6', 'HSK Level 6'),
-    ('beginner', 'Beginner level (HSK1)'),
-    ('simple', 'Simple level (HSK1-2)'),
-    ('advanced', 'Advanced level (HSK3-4)'),
-    ('expert', 'Expert level (HSK5-6)'),
-    ('learning', 'Currently learning');
+    ('Learning', 'Currently learning'),
+    ('Known', 'Already known');
 
   -- Dictionary tables (merged from dictionary.db)
   CREATE TABLE IF NOT EXISTS dictionary_entries (
