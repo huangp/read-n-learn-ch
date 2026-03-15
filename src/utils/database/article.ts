@@ -50,7 +50,7 @@ export async function trackDisplayedContent(
         resolvedArticleId = session?.article_id || '';
     }
 
-// Update reading session
+    // Update reading session
     await db.runAsync(
         'UPDATE reading_sessions SET characters_displayed = ?, words_displayed = ? WHERE id = ?',
         [JSON.stringify(uniqueChars), JSON.stringify(uniqueWords), sessionId]
@@ -72,7 +72,7 @@ export async function getCurrentSessionData(db: SQLite.SQLiteDatabase, sessionId
         [sessionId]
     );
 
-    if (!session) return { wordsLookedUp: [], charactersLookedUp: [] };
+    if (!session) return {wordsLookedUp: [], charactersLookedUp: []};
 
     const wordsLookedUp = session.words_looked_up ? JSON.parse(session.words_looked_up) : [];
     const charsLookedUp = session.characters_looked_up ? JSON.parse(session.characters_looked_up) : [];
@@ -92,7 +92,8 @@ export async function updateReadingSession(db: SQLite.SQLiteDatabase, wordsLooke
 
 export async function saveArticleMeta(db: SQLite.SQLiteDatabase, articleId: string, totalChars: number, uniqueChars: number, unknownChars: number, meta: ArticleMeta) {
     await db.runAsync(
-        `INSERT OR REPLACE INTO article_meta
+        `INSERT
+        OR REPLACE INTO article_meta
           (article_id, total_chars, unique_chars, unknown_chars,
            hsk1_count, hsk2_count, hsk3_count, hsk4_count, hsk5_count, hsk6_count,
            non_hsk_count, updated_at)

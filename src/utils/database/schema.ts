@@ -22,7 +22,6 @@ export const DROP_USER_DATA_TABLES = `
   DROP TABLE IF EXISTS tags;
   DROP TABLE IF EXISTS article_meta;
   DROP TABLE IF EXISTS word_lookup_log;
-  DROP TABLE IF EXISTS character_exposure_log;
   DROP TABLE IF EXISTS reading_sessions;
   DROP TABLE IF EXISTS vocabulary;
   DROP TABLE IF EXISTS meta;
@@ -60,17 +59,6 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
     characters_looked_up TEXT,
     words_looked_up TEXT,
     familiarity_incremented BOOLEAN DEFAULT 0
-  );
-
-  CREATE TABLE IF NOT EXISTS character_exposure_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    character TEXT NOT NULL,
-    article_id TEXT NOT NULL,
-    session_id INTEGER,
-    exposed_at INTEGER,
-    was_known_at_exposure BOOLEAN,
-    FOREIGN KEY (character) REFERENCES vocabulary(id),
-    FOREIGN KEY (session_id) REFERENCES reading_sessions(id)
   );
 
   CREATE TABLE IF NOT EXISTS word_lookup_log (
