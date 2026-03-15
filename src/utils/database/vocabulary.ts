@@ -169,42 +169,50 @@ export class VocabularyDBUtils {
 
         const now = Date.now();
 
-        // Check if word exists in stats
+        // Check if word exists in vocabulary
         const existing = await this.db.getFirstAsync<{
             familiarity: number;
             is_known: number;
-        }>('SELECT familiarity, is_known FROM word_stats WHERE word = ?', [word]);
+        }>('SELECT familiarity, is_known FROM vocabulary WHERE id = ?', [word]);
 
         if (existing) {
             if (existing.is_known) {
                 // Mark as unknown: drop familiarity below 5
                 const newFam = Math.max(existing.familiarity - 1, 0);
                 await this.db.runAsync(
-                    'UPDATE word_stats SET familiarity = ?, is_known = 0, last_reviewed_at = ? WHERE word = ?',
+                    'UPDATE vocabulary SET familiarity = ?, is_known = 0, last_reviewed_at = ? WHERE id = ?',
                     [newFam, now, word]
                 );
                 // Re-add "learning" tag since it's no longer known
                 this.autoTagVocabularyAsLearning(word).catch(err =>
                     console.warn('[Learning] Failed to re-tag word:', word, err)
                 );
+                // Remove "Known" tag since it's no longer known
+                this.removeKnownTag(word).catch(err =>
+                    console.warn('[Known] Failed to remove tag from word:', word, err)
+                );
                 return false; // now unknown
             } else {
                 // Mark as known: set to 5
                 await this.db.runAsync(
-                    'UPDATE word_stats SET familiarity = 5, is_known = 1, last_reviewed_at = ? WHERE word = ?',
+                    'UPDATE vocabulary SET familiarity = 5, is_known = 1, last_reviewed_at = ? WHERE id = ?',
                     [now, word]
                 );
                 // Remove "learning" tag since it's now known
                 this.removeLearningTag(word).catch(err =>
                     console.warn('[Learning] Failed to remove tag from word:', word, err)
                 );
+                // Add "Known" tag since it's now known
+                this.addKnownTag(word).catch(err =>
+                    console.warn('[Known] Failed to add tag to word:', word, err)
+                );
                 return true; // now known
             }
         } else {
-            // Not in stats yet — insert as known
+            // Not in vocabulary yet — insert as known
             await this.db.runAsync(
-                'INSERT INTO word_stats (word, familiarity, is_known, first_seen_at, last_reviewed_at, total_exposures, character_count) VALUES (?, 5, 1, ?, ?, 0, ?)',
-                [word, now, now, word.length]
+                'INSERT INTO vocabulary (id, hsk_level, familiarity, is_known, first_seen_at, last_reviewed_at, lookup_count, article_count, total_exposures) VALUES (?, NULL, 5, 1, ?, ?, 0, 0, 0)',
+                [word, now, now]
             );
             // Word is known, no "learning" tag needed
             return true; // now known
@@ -229,6 +237,24 @@ export class VocabularyDBUtils {
         if (!this.db) return;
         // Use tag name directly as primary key
         await this.removeTagFromVocabulary(vocabularyId, learningTagName);
+    }
+
+    /**
+     * Add the "Known" tag to vocabulary.
+     * Called when a word is marked as known (familiarity = 5).
+     */
+    async addKnownTag(vocabularyId: string): Promise<void> {
+        if (!this.db) return;
+        await this.addTagToVocabulary(vocabularyId, 'Known');
+    }
+
+    /**
+     * Remove the "Known" tag from vocabulary.
+     * Called when a word is marked as unknown or looked up.
+     */
+    async removeKnownTag(vocabularyId: string): Promise<void> {
+        if (!this.db) return;
+        await this.removeTagFromVocabulary(vocabularyId, 'Known');
     }
 
     async getAllTags(): Promise<Tag[]> {

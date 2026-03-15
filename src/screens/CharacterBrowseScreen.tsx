@@ -218,12 +218,16 @@ export default function CharacterBrowseScreen() {
 
   // Stable callbacks — don't recreate on every render
   const handleToggleKnown = useCallback(async (word: string) => {
-    const nowKnown = await CharacterRecognitionService.toggleWordKnown(word);
-    setKnownMap((prev) => {
-      const next = new Map(prev);
-      next.set(word, nowKnown);
-      return next;
-    });
+    try {
+      const nowKnown = await CharacterRecognitionService.toggleWordKnown(word);
+      setKnownMap((prev) => {
+        const next = new Map(prev);
+        next.set(word, nowKnown);
+        return next;
+      });
+    } catch (error) {
+      console.error('[CharacterBrowseScreen] toggleWordKnown error:', error);
+    }
   }, []);
 
   const handleShowDefinition = useCallback((word: string) => {

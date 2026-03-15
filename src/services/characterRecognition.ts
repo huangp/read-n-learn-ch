@@ -182,9 +182,17 @@ class CharacterRecognitionService {
     this.vocabularyDBUtils.autoTagVocabularyAsLearning(word).catch(err =>
       console.warn('[Learning] Failed to tag word:', word, err)
     );
+    // Remove "Known" tag since word is being looked up (user doesn't know it well)
+    this.vocabularyDBUtils.removeKnownTag(word).catch(err =>
+      console.warn('[Known] Failed to remove tag from word:', word, err)
+    );
     for (const char of chars) {
       this.vocabularyDBUtils.autoTagVocabularyAsLearning(char).catch(err =>
         console.warn('[Learning] Failed to tag character:', char, err)
+      );
+      // Remove "Known" tag from characters too
+      this.vocabularyDBUtils.removeKnownTag(char).catch(err =>
+        console.warn('[Known] Failed to remove tag from character:', char, err)
       );
     }
   }
