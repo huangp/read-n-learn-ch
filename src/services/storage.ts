@@ -3,6 +3,7 @@ import { Article, ArticleFormData, ReadingProgress } from '../types';
 import { segmentArticle } from './segmentation';
 import CharacterRecognitionService from './characterRecognition';
 import DebugService from './debug';
+import { ArticleTagsService } from './articleTags';
 
 const ARTICLES_KEY = '@articles';
 const READING_PROGRESS_KEY = '@reading_progress';
@@ -62,18 +63,42 @@ export class StorageService {
       const segments = await segmentArticle(formData.content);
       DebugService.log('STORAGE', `Segmentation complete: ${segments.length} segments`);
       
+      // Normalize tags
+      const normalizedTags = formData.tags ? ArticleTagsService.validateTags(formData.tags) : undefined;
+      const formDataWithNormalizedTags = {
+        ...formData,
+        tags: normalizedTags
+      };
+
       if (articleId) {
         const index = articles.findIndex(a => a.id === articleId);
         if (index !== -1) {
+          // Get old tags for index update
+          const oldTags = articles[index].tags || [];
+          
           articles[index] = {
             ...articles[index],
-            ...formData,
+            ...formDataWithNormalizedTags,
             updatedAt: now,
             wordCount: this.countChineseWords(formData.content),
             segments,
           };
           await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
           DebugService.log('STORAGE', 'Article updated successfully', { articleId, segmentsCount: segments.length });
+
+          // Update tags index
+          if (normalizedTags) {
+            ArticleTagsService.addTagsToIndex(normalizedTags).catch(err =>
+              console.warn('[storage] Failed to update tags index:', err)
+            );
+          }
+          // Remove old tags that are no longer used
+          const removedTags = oldTags.filter(tag => !normalizedTags?.includes(tag));
+          if (removedTags.length > 0) {
+            ArticleTagsService.removeTagsFromIndex(removedTags).catch(err =>
+              console.warn('[storage] Failed to remove old tags from index:', err)
+            );
+          }
 
           // Compute and save article meta
           const chineseWords = segments.filter(s => s.type === 'chinese').map(s => s.text);
@@ -86,7 +111,7 @@ export class StorageService {
 
       const newArticle: Article = {
         id: articleId || this.generateId(formData.content),
-        ...formData,
+        ...formDataWithNormalizedTags,
         createdAt: now,
         updatedAt: now,
         wordCount: this.countChineseWords(formData.content),
@@ -96,6 +121,13 @@ export class StorageService {
       articles.unshift(newArticle);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
       DebugService.log('STORAGE', 'New article saved successfully', { articleId: newArticle.id, segmentsCount: segments.length });
+
+      // Update tags index
+      if (normalizedTags) {
+        ArticleTagsService.addTagsToIndex(normalizedTags).catch(err =>
+          console.warn('[storage] Failed to update tags index:', err)
+        );
+      }
 
       // Compute and save article meta
       const chineseWords = segments.filter(s => s.type === 'chinese').map(s => s.text);
@@ -112,8 +144,16 @@ export class StorageService {
   static async deleteArticle(id: string): Promise<void> {
     try {
       const articles = await this.getAllArticles();
+      const articleToDelete = articles.find(article => article.id === id);
       const filtered = articles.filter(article => article.id !== id);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(filtered));
+      
+      // Remove tags from index if article had tags
+      if (articleToDelete?.tags && articleToDelete.tags.length > 0) {
+        ArticleTagsService.removeTagsFromIndex(articleToDelete.tags).catch(err =>
+          console.warn('[storage] Failed to remove tags from index:', err)
+        );
+      }
       
       // Also delete reading progress and article meta for this article
       await this.deleteReadingProgress(id);

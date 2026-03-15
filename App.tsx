@@ -7,6 +7,7 @@ import { PaperProvider } from 'react-native-paper';
 import AppNavigator from './src/navigation/AppNavigator';
 import { loadCoreDictionary, loadFullDictionary } from './src/services/dictionaryLoader';
 import CharacterRecognitionService from './src/services/characterRecognition';
+import { ArticleTagsService } from './src/services/articleTags';
 import { useSubscriptionStore } from './src/store/subscriptionStore';
 
 export default function App() {
@@ -23,6 +24,11 @@ export default function App() {
     const initializeSubscription = useSubscriptionStore.getState().initialize;
     initializeSubscription().catch(error => {
       console.error('Failed to initialize subscription service:', error);
+    });
+    
+    // Initialize article tags index
+    ArticleTagsService.refreshTagIndex().catch(error => {
+      console.error('Failed to initialize article tags index:', error);
     });
   }, []);
 

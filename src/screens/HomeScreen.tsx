@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -18,12 +18,16 @@ import {
   Icon,
   useTheme,
   Snackbar,
+  Chip,
+  Button,
 } from 'react-native-paper';
+import { ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Article, RootStackParamList } from '../types';
 import { StorageService } from '../services/storage';
 import CharacterRecognitionService, { ArticleMeta } from '../services/characterRecognition';
+import { ArticleTagsService } from '../services/articleTags';
 import { SyncButton } from '../components/SyncButton';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
@@ -40,6 +44,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const loadArticles = async () => {
     try {
@@ -47,6 +53,9 @@ export default function HomeScreen() {
       setArticles(data);
       const meta = await CharacterRecognitionService.getAllArticleMeta();
       setMetaMap(meta);
+      // Load all tags
+      const tags = await ArticleTagsService.getAllTags();
+      setAllTags(tags.sort()); // Sort alphabetically
     } catch (error) {
       console.error('Error loading articles:', error);
     } finally {
@@ -55,13 +64,42 @@ export default function HomeScreen() {
   };
 
   const handleSearch = async () => {
+    let results: Article[];
     if (searchQuery.trim()) {
-      const results = await StorageService.searchArticles(searchQuery);
-      setArticles(results);
+      results = await StorageService.searchArticles(searchQuery);
     } else {
-      loadArticles();
+      results = await StorageService.getAllArticles();
     }
+    
+    // Apply tag filter with OR logic
+    if (selectedTags.length > 0) {
+      results = results.filter(article => 
+        selectedTags.some(tag => article.tags?.includes(tag))
+      );
+    }
+    
+    setArticles(results);
   };
+
+  const clearAllFilters = () => {
+    setSelectedTags([]);
+    setSearchQuery('');
+    loadArticles();
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => {
+      const newTags = prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag];
+      return newTags;
+    });
+  };
+
+  // Re-filter articles when selected tags change
+  useEffect(() => {
+    handleSearch();
+  }, [selectedTags]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -125,6 +163,15 @@ export default function HomeScreen() {
              <Text variant="bodyMedium" numberOfLines={2} style={styles.articlePreview}>
                {item.content}
              </Text>
+             {item.tags && item.tags.length > 0 && (
+               <View style={styles.tagsContainer}>
+                 {item.tags.map((tag, index) => (
+                   <View key={index} style={styles.tagChip}>
+                     <Text style={styles.tagText}>{tag}</Text>
+                   </View>
+                 ))}
+               </View>
+             )}
           </View>
           <View style={styles.metaContainer}>
             <Icon source="format-size" size={14} color={theme.colors.onSurfaceVariant} />
@@ -182,6 +229,44 @@ export default function HomeScreen() {
         onSubmitEditing={handleSearch}
         style={styles.searchbar}
       />
+
+      {/* Tag Filter */}
+      {allTags.length > 0 && (
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagFilterContent}
+          >
+            {allTags.map(tag => {
+              const isSelected = selectedTags.includes(tag);
+              return (
+                <Chip
+                  key={tag}
+                  selected={isSelected}
+                  onPress={() => toggleTag(tag)}
+                  style={isSelected ? styles.filterChipSelected : styles.filterChip}
+                  showSelectedCheck={false}
+                  icon={isSelected ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                  compact
+                >
+                  {tag}
+                </Chip>
+              );
+            })}
+          </ScrollView>
+          {(selectedTags.length > 0 || searchQuery.trim()) && (
+            <Button
+              mode="text"
+              onPress={clearAllFilters}
+              style={styles.clearButton}
+              compact
+            >
+              Clear All
+            </Button>
+          )}
+        </View>
+      )}
 
       <FlatList
         data={articles}
@@ -255,6 +340,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 2,
   },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  tagChip: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  tagText: {
+    fontSize: 11,
+    color: '#1976d2',
+    fontWeight: '500',
+  },
   metaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -299,5 +402,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#999',
     marginTop: 8,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    minHeight: 52,
+  },
+  tagFilterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
+    minHeight: 44,
+  },
+  filterChip: {
+    marginVertical: 4,
+    marginHorizontal: 2,
+  },
+  filterChipSelected: {
+    marginVertical: 4,
+    marginHorizontal: 2,
+  },
+  clearButton: {
+    marginLeft: 8,
+    minWidth: 80,
   },
 });

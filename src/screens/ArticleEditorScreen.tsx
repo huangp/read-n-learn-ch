@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
+  TextInput as RNTextInput,
 } from 'react-native';
 import {
   Text,
@@ -17,12 +18,15 @@ import {
   Dialog,
   List,
   Snackbar,
+  IconButton,
 } from 'react-native-paper';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, ArticleFormData } from '../types';
 import { StorageService } from '../services/storage';
 import { FileProcessingService } from '../services/fileProcessing';
+import { ArticleTagsService } from '../services/articleTags';
+import { MultiSelect } from 'react-native-element-dropdown';
 
 type ArticleEditorScreenRouteProp = RouteProp<RootStackParamList, 'ArticleEditor'>;
 type ArticleEditorScreenNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -39,6 +43,9 @@ export default function ArticleEditorScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [source, setSource] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
@@ -50,7 +57,13 @@ export default function ArticleEditorScreen() {
     if (isEditing) {
       loadArticle();
     }
+    loadAllTags();
   }, [articleId]);
+
+  const loadAllTags = async () => {
+    const tags = await ArticleTagsService.getAllTags();
+    setAllTags(tags);
+  };
 
   const loadArticle = async () => {
     try {
@@ -59,6 +72,7 @@ export default function ArticleEditorScreen() {
         setTitle(article.title);
         setContent(article.content);
         setSource(article.source || '');
+        setTags(article.tags || []);
       }
     } catch (error) {
       console.error('Error loading article:', error);
@@ -82,6 +96,7 @@ export default function ArticleEditorScreen() {
         title: title.trim() || 'Untitled',
         content: content.trim(),
         source: source.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
       };
 
       await StorageService.saveArticle(formData, articleId);
@@ -221,6 +236,84 @@ export default function ArticleEditorScreen() {
             mode="outlined"
             style={styles.sourceInput}
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.tagsLabel}>Tags (max 10)</Text>
+          <MultiSelect
+            style={styles.tagsDropdown}
+            placeholderStyle={styles.tagsPlaceholder}
+            selectedTextStyle={styles.tagsSelectedText}
+            iconStyle={styles.tagsIcon}
+            search
+            data={allTags.map(tag => ({ label: tag, value: tag }))}
+            labelField="label"
+            valueField="value"
+            placeholder="Select existing tags"
+            searchPlaceholder="Search tags..."
+            value={tags}
+            onChange={(selectedItems: string[]) => {
+              if (selectedItems.length <= 10) {
+                setTags(selectedItems);
+              }
+            }}
+            maxSelect={10}
+            activeColor="#e3f2fd"
+            renderItem={(item: any, selected?: boolean) => (
+              <View style={styles.itemContainer}>
+                <Text style={[styles.itemText, selected && styles.selectedItemText]}>
+                  {item.label}
+                </Text>
+                {selected && (
+                  <IconButton
+                    icon="check"
+                    size={20}
+                    iconColor="#1976d2"
+                    style={styles.checkIcon}
+                  />
+                )}
+              </View>
+            )}
+            renderSelectedItem={(item: any, unSelect?: (item: any) => void) => (
+              <View style={styles.selectedTagItem}>
+                <Text style={styles.selectedTagText}>{item.label}</Text>
+                {unSelect && (
+                  <Text style={styles.removeTagButton} onPress={() => unSelect(item)}>×</Text>
+                )}
+              </View>
+            )}
+          />
+          
+          {/* Separate input for adding new tags */}
+          <View style={styles.newTagContainer}>
+            <RNTextInput
+              style={styles.newTagInput}
+              placeholder="Type new tag and press Enter..."
+              placeholderTextColor="#999"
+              value={tagInput}
+              onChangeText={setTagInput}
+              onSubmitEditing={() => {
+                if (tagInput.trim() && tags.length < 10) {
+                  const normalizedTag = ArticleTagsService.normalizeTag(tagInput);
+                  if (normalizedTag && !tags.includes(normalizedTag)) {
+                    setTags([...tags, normalizedTag]);
+                    // Add to allTags if it's a new tag
+                    if (!allTags.includes(normalizedTag)) {
+                      setAllTags([...allTags, normalizedTag]);
+                    }
+                  }
+                  setTagInput('');
+                }
+              }}
+              returnKeyType="done"
+              blurOnSubmit={false}
+              editable={tags.length < 10}
+            />
+          </View>
+          
+          {tags.length > 0 && (
+            <Text style={styles.tagsCount}>{tags.length}/10 tags</Text>
+          )}
         </View>
 
         <View style={styles.inputGroup}>
@@ -408,5 +501,99 @@ const styles = StyleSheet.create({
   processingSubtext: {
     color: '#aaa',
     marginTop: 8,
+  },
+  tagsLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#666',
+  },
+  tagsDropdown: {
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+  },
+  tagsPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+  tagsSelectedText: {
+    fontSize: 16,
+  },
+  tagsInputSearch: {
+    height: 40,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    backgroundColor: '#fff',
+  },
+  tagsIcon: {
+    width: 20,
+    height: 20,
+  },
+  selectedTagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    margin: 4,
+  },
+  selectedTagText: {
+    fontSize: 14,
+    color: '#1976d2',
+    marginRight: 8,
+  },
+  removeTagButton: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  tagsCount: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'right',
+  },
+  newTagContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  newTagInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+  },
+  itemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  itemText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  selectedItemText: {
+    fontWeight: '600',
+    color: '#1976d2',
+  },
+  checkIcon: {
+    margin: 0,
   },
 });
