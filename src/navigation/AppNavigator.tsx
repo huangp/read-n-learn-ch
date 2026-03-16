@@ -11,6 +11,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import CharacterBrowseScreen from '../screens/CharacterBrowseScreen';
 import DebugDatabaseScreen from '../screens/DebugDatabaseScreen';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
+import ProgressScreen from '../screens/ProgressScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -74,6 +75,11 @@ export default function AppNavigator() {
           name="Subscription"
           component={SubscriptionScreen}
           options={{ title: 'Subscription' }}
+        />
+        <Stack.Screen
+          name="Progress"
+          component={ProgressScreen}
+          options={{ title: 'Progress' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

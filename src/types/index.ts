@@ -67,5 +67,6 @@ export type RootStackParamList = {
   TagManagement: undefined;
   DebugDatabase: undefined;
   Subscription: undefined;
+  Progress: undefined;
 };
 

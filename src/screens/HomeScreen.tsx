@@ -216,6 +216,7 @@ export default function HomeScreen() {
       <Appbar.Header>
         <Appbar.Content title="Read and Learn Chinese" />
         <SyncButton onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} />
+        <Appbar.Action icon="chart-line" onPress={() => navigation.navigate('Progress')} />
         <Appbar.Action icon="translate" onPress={() => navigation.navigate('CharacterBrowser')} />
         <Appbar.Action icon="crown" onPress={() => navigation.navigate('Subscription')} />
         {/*<Appbar.Action icon="tag-multiple" onPress={() => navigation.navigate('TagManagement')} />*/}
