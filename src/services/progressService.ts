@@ -1,4 +1,4 @@
-import {ProgressDBUtils} from "../utils/database/progress";
+import {ProgressDBUtils, DailyStats, OverallLearningStats} from "../utils/database/progress";
 
 export interface VocabularyItem {
     word: string;
@@ -40,6 +40,32 @@ class ProgressService {
             word: word.id,
             lookupCount: word.lookup_count,
         }));
+    }
+
+    /**
+     * Get daily learning statistics for a date range
+     */
+    async getDailyStats(startDate: number, endDate: number): Promise<DailyStats[]> {
+        await this.init();
+        if (!this.dbUtils) return [];
+
+        return await this.dbUtils.getDailyStats(startDate, endDate);
+    }
+
+    /**
+     * Get overall learning statistics (lifetime totals)
+     */
+    async getOverallLearningStats(): Promise<OverallLearningStats> {
+        await this.init();
+        if (!this.dbUtils) {
+            return {
+                totalVocabularyExposed: 0,
+                totalVocabularyKnown: 0,
+                totalArticlesRead: 0,
+            };
+        }
+
+        return await this.dbUtils.getOverallLearningStats();
     }
 }
 

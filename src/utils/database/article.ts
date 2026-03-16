@@ -202,16 +202,34 @@ export async function completeReadingSession(db: SQLite.SQLiteDatabase, sessionI
 // Increment character familiarity (capped at 5)
     for (const char of characters) {
         await db.runAsync(
-            'UPDATE vocabulary SET familiarity = MIN(familiarity + 1, 5), is_known = CASE WHEN MIN(familiarity + 1, 5) >= 5 THEN 1 ELSE 0 END, last_reviewed_at = ?, total_exposures = (total_exposures + 1) WHERE id = ?',
-            [now, char]
+            `UPDATE vocabulary 
+             SET familiarity = MIN(familiarity + 1, 5), 
+                 is_known = CASE WHEN MIN(familiarity + 1, 5) >= 5 THEN 1 ELSE 0 END, 
+                 last_reviewed_at = ?, 
+                 total_exposures = (total_exposures + 1),
+                 became_known_at = CASE 
+                     WHEN is_known = 0 AND MIN(familiarity + 1, 5) >= 5 THEN ? 
+                     ELSE became_known_at 
+                 END
+             WHERE id = ?`,
+            [now, now, char]
         );
     }
 
 // Increment word familiarity (capped at 5)
     for (const word of words) {
         await db.runAsync(
-            'UPDATE vocabulary SET familiarity = MIN(familiarity + 1, 5), is_known = CASE WHEN MIN(familiarity + 1, 5) >= 5 THEN 1 ELSE 0 END, last_reviewed_at = ?, total_exposures = (total_exposures + 1) WHERE id = ?',
-            [now, word]
+            `UPDATE vocabulary 
+             SET familiarity = MIN(familiarity + 1, 5), 
+                 is_known = CASE WHEN MIN(familiarity + 1, 5) >= 5 THEN 1 ELSE 0 END, 
+                 last_reviewed_at = ?, 
+                 total_exposures = (total_exposures + 1),
+                 became_known_at = CASE 
+                     WHEN is_known = 0 AND MIN(familiarity + 1, 5) >= 5 THEN ? 
+                     ELSE became_known_at 
+                 END
+             WHERE id = ?`,
+            [now, now, word]
         );
     }
 

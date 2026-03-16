@@ -169,18 +169,18 @@ The app is configured for iPad with:
 ### Progress Screen - Study Tools & Gamification
 
 #### Phase 1: Progress Screen Foundation
-- [ ] Create `src/screens/ProgressScreen.tsx` with header navigation
-- [ ] Add Progress icon to Appbar header
-- [ ] Implement tab navigation for Study/Review, Stats, Achievements sections
-- [ ] Set up lazy loading for sections (load on scroll)
+- [x] Create `src/screens/ProgressScreen.tsx` with header navigation
+- [x] Add Progress icon to Appbar header
+- [x] Implement tab navigation for Study/Review, Stats, Achievements sections
+- [x] Set up lazy loading for sections (load on scroll)
 
 #### Phase 2: Study/Review Tools (Priority 1)
-- [ ] **Smart Review Queue** - Spaced repetition for problem words
+- [x] **Smart Review Queue** - Spaced repetition for problem words
   - Query: Words with lookup_count > 0 AND familiarity < 5
   - Show word + pinyin + definition
   - "Know it" / "Need practice" buttons
   - Auto-adjust familiarity
-- [ ] **Problem Words List** - High lookup_count words
+- [x] **Problem Words List** - High lookup_count words
   - Filter by HSK level
   - Quick access to word details
   - "Mark as Known" option
@@ -221,7 +221,7 @@ The app is configured for iPad with:
   - Filter by manageable unknown character counts
 
 #### Phase 5: Analytics/Insights (Priority 3)
-- [ ] **Learning Velocity Charts**
+- [x] **Learning Velocity Charts**
   - Words learned per week
   - Reading time trends
   - Lookup frequency over time
@@ -229,7 +229,7 @@ The app is configured for iPad with:
   - Mastery % per HSK level
   - Words known by level
   - Recommended focus level
-- [ ] **Reading Stats**
+- [x] **Reading Stats**
   - Total articles read
   - Total reading time
   - Total words looked up

@@ -7,7 +7,7 @@
  * bump version when making breaking changes to the schema
  */
 export const SCHEMA_VERSIONS = {
-  CHARACTER_RECOGNITION: 1,
+  CHARACTER_RECOGNITION: 2,
 } as const;
 
 // Drop statements for dictionary tables (can be rebuilt from JSON)
@@ -42,7 +42,8 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
     last_reviewed_at INTEGER,
     lookup_count INTEGER DEFAULT 0,
     article_count INTEGER DEFAULT 0,
-    total_exposures INTEGER DEFAULT 0
+    total_exposures INTEGER DEFAULT 0,
+    became_known_at INTEGER
   );
 
   CREATE INDEX IF NOT EXISTS idx_vocabulary_hsk ON vocabulary(hsk_level);
