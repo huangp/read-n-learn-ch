@@ -1,44 +1,64 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Surface, Button } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, Surface, ActivityIndicator } from 'react-native-paper';
+import { progressService, VocabularyItem } from '../../services/progressService';
+import VocabularyList from './VocabularyList';
 
 export default function StudySection() {
+  const [reviewWords, setReviewWords] = useState<VocabularyItem[]>([]);
+  const [problemWords, setProblemWords] = useState<VocabularyItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadVocabulary();
+  }, []);
+
+  const loadVocabulary = async () => {
+    try {
+      setLoading(true);
+      const [review, problem] = await Promise.all([
+        progressService.getWordsForReview(20),
+        progressService.getProblemWords(20),
+      ]);
+      setReviewWords(review);
+      setProblemWords(problem);
+    } catch (error) {
+      console.error('Error loading vocabulary:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator animating={true} size="large" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Surface style={styles.card} elevation={2}>
-        <Text variant="titleLarge" style={styles.title}>
+      {/* Smart Review Queue Section */}
+      <Surface style={styles.section} elevation={1}>
+        <Text variant="titleLarge" style={styles.sectionTitle}>
           Smart Review Queue
         </Text>
-        <Text variant="bodyMedium" style={styles.description}>
-          Review words based on spaced repetition. Focus on words you struggle with.
+        <Text variant="bodyMedium" style={styles.sectionDescription}>
+          Words you've looked up that need review
         </Text>
-        <Button mode="contained" style={styles.button}>
-          Start Review Session
-        </Button>
+        <VocabularyList words={reviewWords} />
       </Surface>
 
-      <Surface style={styles.card} elevation={2}>
-        <Text variant="titleLarge" style={styles.title}>
+      {/* Problem Words Section */}
+      <Surface style={styles.section} elevation={1}>
+        <Text variant="titleLarge" style={styles.sectionTitle}>
           Problem Words
         </Text>
-        <Text variant="bodyMedium" style={styles.description}>
-          Words you've looked up multiple times. Practice these to improve retention.
+        <Text variant="bodyMedium" style={styles.sectionDescription}>
+          Words you look up most frequently
         </Text>
-        <Button mode="outlined" style={styles.button}>
-          View Problem Words
-        </Button>
-      </Surface>
-
-      <Surface style={styles.card} elevation={2}>
-        <Text variant="titleLarge" style={styles.title}>
-          Daily Goal
-        </Text>
-        <Text variant="bodyMedium" style={styles.description}>
-          Set and track your daily word review goal.
-        </Text>
-        <Button mode="outlined" style={styles.button}>
-          Set Daily Goal
-        </Button>
+        <VocabularyList words={problemWords} />
       </Surface>
     </View>
   );
@@ -48,19 +68,22 @@ const styles = StyleSheet.create({
   container: {
     gap: 16,
   },
-  card: {
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 300,
+  },
+  section: {
     padding: 16,
     borderRadius: 12,
     backgroundColor: '#fff',
   },
-  title: {
-    marginBottom: 8,
+  sectionTitle: {
+    marginBottom: 4,
   },
-  description: {
+  sectionDescription: {
     marginBottom: 16,
     color: '#666',
-  },
-  button: {
-    marginTop: 8,
   },
 });
