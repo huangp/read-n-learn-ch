@@ -222,6 +222,236 @@ export class ProgressDBUtils {
             totalArticlesRead: articlesResult?.total_articles || 0,
         };
     }
+
+    /**
+     * Get reading streak - consecutive days with completed reading sessions
+     * Returns current streak and longest streak
+     */
+    async getReadingStreak(): Promise<ReadingStreak> {
+        // Get all dates with completed reading sessions, ordered by date desc
+        const rows = await this.db.getAllAsync<{
+            date: string;
+        }>(
+            `SELECT DISTINCT 
+                DATE(completed_at / 1000, 'unixepoch', 'localtime') as date
+             FROM reading_sessions 
+             WHERE completed_at IS NOT NULL
+             ORDER BY date DESC`
+        );
+
+        const dates = rows.map(r => r.date);
+        
+        if (dates.length === 0) {
+            return { currentStreak: 0, longestStreak: 0 };
+        }
+
+        // Calculate current streak (consecutive days from today backward)
+        let currentStreak = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+        
+        // Check if read today
+        const readToday = dates.includes(todayStr);
+        
+        // Start counting from today or yesterday
+        let checkDate = new Date(today);
+        if (!readToday) {
+            // If didn't read today, check if read yesterday to maintain streak
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+        
+        // Count consecutive days
+        for (let i = 0; i < dates.length; i++) {
+            const checkDateStr = checkDate.toISOString().split('T')[0];
+            if (dates.includes(checkDateStr)) {
+                currentStreak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+
+        // Calculate longest streak
+        let longestStreak = 0;
+        let tempStreak = 1;
+        
+        for (let i = 1; i < dates.length; i++) {
+            const prevDate = new Date(dates[i - 1]);
+            const currDate = new Date(dates[i]);
+            const diffDays = (prevDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24);
+            
+            if (diffDays === 1) {
+                tempStreak++;
+            } else {
+                longestStreak = Math.max(longestStreak, tempStreak);
+                tempStreak = 1;
+            }
+        }
+        longestStreak = Math.max(longestStreak, tempStreak);
+
+        return { currentStreak, longestStreak };
+    }
+
+    /**
+     * Get badge progress and unlock status
+     */
+    async getBadgeProgress(): Promise<BadgeProgress[]> {
+        // Get current stats for badge calculations
+        const [articlesRead, vocabularyKnown] = await Promise.all([
+            this.db.getFirstAsync<{ count: number }>(
+                `SELECT COUNT(*) as count FROM reading_sessions WHERE completed_at IS NOT NULL`
+            ),
+            this.db.getFirstAsync<{ count: number }>(
+                `SELECT COUNT(*) as count FROM vocabulary WHERE is_known = 1`
+            ),
+        ]);
+
+        const articlesCount = articlesRead?.count || 0;
+        const vocabCount = vocabularyKnown?.count || 0;
+
+        // Get streak
+        const streak = await this.getReadingStreak();
+
+        // Define badges with criteria
+        const badges: BadgeProgress[] = [
+            {
+                id: 'first_steps',
+                name: '🏃‍♂️ First Steps',
+                description: 'Read your first article',
+                criteria: 'Read 1 article',
+                target: 1,
+                current: articlesCount,
+                isUnlocked: articlesCount >= 1,
+            },
+            {
+                id: 'bookworm',
+                name: '📚 Bookworm',
+                description: 'Read 10 articles',
+                criteria: 'Read 10 articles',
+                target: 10,
+                current: articlesCount,
+                isUnlocked: articlesCount >= 10,
+            },
+            {
+                id: 'reading_master',
+                name: '📖 Reading Master',
+                description: 'Read 50 articles',
+                criteria: 'Read 50 articles',
+                target: 50,
+                current: articlesCount,
+                isUnlocked: articlesCount >= 50,
+            },
+            {
+                id: 'vocabulary_builder',
+                name: '🧠 Vocabulary Builder',
+                description: 'Learn 500 vocabulary items',
+                criteria: 'Learn 500 vocabulary items',
+                target: 500,
+                current: vocabCount,
+                isUnlocked: vocabCount >= 500,
+            },
+            {
+                id: 'vocabulary_master',
+                name: '🎓 Vocabulary Master',
+                description: 'Learn 2000 vocabulary items',
+                criteria: 'Learn 2000 vocabulary items',
+                target: 2000,
+                current: vocabCount,
+                isUnlocked: vocabCount >= 2000,
+            },
+            {
+                id: 'on_fire',
+                name: '🔥 On Fire',
+                description: 'Maintain a 7-day reading streak',
+                criteria: '7-day streak',
+                target: 7,
+                current: streak.currentStreak,
+                isUnlocked: streak.currentStreak >= 7,
+            },
+            {
+                id: 'daily_dedication',
+                name: '💪 Daily Dedication',
+                description: 'Maintain a 30-day reading streak',
+                criteria: '30-day streak',
+                target: 30,
+                current: streak.currentStreak,
+                isUnlocked: streak.currentStreak >= 30,
+            },
+        ];
+
+        // Get HSK progress for HSK badges
+        const hskProgress = await this.getHSKProgress();
+
+        // Add HSK level badges
+        const hskBadges: BadgeProgress[] = hskProgress.map((hsk, index) => {
+            const level = index + 1;
+            const percentage = hsk.total > 0 ? Math.round((hsk.known / hsk.total) * 100) : 0;
+            const medals = ['🥇', '🥈', '🥉', '🏅', '🎖️', '👑'];
+            return {
+                id: `hsk_${level}`,
+                name: `${medals[index]} HSK ${level} Master`,
+                description: `Master all HSK ${level} vocabulary`,
+                criteria: `Master 100% of HSK ${level}`,
+                target: 100,
+                current: percentage,
+                isUnlocked: percentage >= 100,
+            };
+        });
+
+        // Combine all badges
+        const allBadges = [...badges, ...hskBadges];
+
+        // Persist unlock status to database
+        for (const badge of allBadges) {
+            if (badge.isUnlocked) {
+                await this.db.runAsync(
+                    `INSERT OR IGNORE INTO user_badges (badge_id, unlocked_at, is_unlocked) 
+                     VALUES (?, ?, 1)`,
+                    [badge.id, Date.now()]
+                );
+            }
+        }
+
+        // Sort: unlocked first, then by ID
+        return allBadges.sort((a, b) => {
+            if (a.isUnlocked && !b.isUnlocked) return -1;
+            if (!a.isUnlocked && b.isUnlocked) return 1;
+            return a.id.localeCompare(b.id);
+        });
+    }
+
+    /**
+     * Get HSK level progress
+     */
+    async getHSKProgress(): Promise<HSKLevelProgress[]> {
+        const hskLevels: HSKLevelProgress[] = [];
+
+        for (let level = 1; level <= 6; level++) {
+            // Get total vocabulary for this HSK level from dictionary
+            const totalResult = await this.db.getFirstAsync<{ count: number }>(
+                `SELECT COUNT(*) as count FROM dictionary_entries WHERE hsk_level = ?`,
+                [level]
+            );
+
+            // Get known vocabulary for this HSK level
+            const knownResult = await this.db.getFirstAsync<{ count: number }>(
+                `SELECT COUNT(*) as count 
+                 FROM vocabulary v
+                 JOIN dictionary_entries d ON v.id = d.simplified
+                 WHERE d.hsk_level = ? AND v.is_known = 1`,
+                [level]
+            );
+
+            hskLevels.push({
+                level,
+                total: totalResult?.count || 0,
+                known: knownResult?.count || 0,
+            });
+        }
+
+        return hskLevels;
+    }
 }
 
 export interface DailyStats {
@@ -235,4 +465,25 @@ export interface OverallLearningStats {
     totalVocabularyExposed: number;
     totalVocabularyKnown: number;
     totalArticlesRead: number;
+}
+
+export interface ReadingStreak {
+    currentStreak: number;
+    longestStreak: number;
+}
+
+export interface BadgeProgress {
+    id: string;
+    name: string;
+    description: string;
+    criteria: string;
+    target: number;
+    current: number;
+    isUnlocked: boolean;
+}
+
+export interface HSKLevelProgress {
+    level: number;
+    total: number;
+    known: number;
 }

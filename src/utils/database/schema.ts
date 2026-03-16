@@ -7,7 +7,7 @@
  * bump version when making breaking changes to the schema
  */
 export const SCHEMA_VERSIONS = {
-  CHARACTER_RECOGNITION: 2,
+  CHARACTER_RECOGNITION: 1,
 } as const;
 
 // Drop statements for dictionary tables (can be rebuilt from JSON)
@@ -108,6 +108,13 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_vocabulary_tags_vocab ON vocabulary_tags(vocabulary_id);
   CREATE INDEX IF NOT EXISTS idx_vocabulary_tags_tag ON vocabulary_tags(tag_name);
+
+  CREATE TABLE IF NOT EXISTS user_badges (
+    badge_id TEXT PRIMARY KEY,
+    unlocked_at INTEGER,
+    progress INTEGER DEFAULT 0,
+    is_unlocked BOOLEAN DEFAULT 0
+  );
 
   INSERT OR IGNORE INTO tags (name, description) VALUES 
     ('HSK1', 'HSK Level 1'),

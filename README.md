@@ -191,11 +191,11 @@ The app is configured for iPad with:
   - Streak counter
 
 #### Phase 3: Gamification (Streaks, Badges, Progress)
-- [ ] **Reading Streak** - Consecutive days tracker
+- [x] **Reading Streak** - Consecutive days tracker
   - Visual calendar heatmap
   - "Current streak: X days"
   - "Best streak: Y days"
-- [ ] **Badges System** - Achievement milestones
+- [x] **Badges System** - Achievement milestones
   - 🏃‍♂️ First Steps - Read first article
   - 📚 Bookworm - Read 10 articles
   - 🧠 Vocabulary Builder - Learn 50 words
@@ -204,7 +204,7 @@ The app is configured for iPad with:
   - 💪 Marathon - Read 30 minutes in one session
   - 🌟 Polyglot - Read 1000 unique characters
   - Check badges after each reading session
-- [ ] **Progress Bars** - Visual mastery tracking
+- [x] **Progress Bars** - Visual mastery tracking
   - Overall vocabulary: Known / Learning / New
   - HSK level progress (per level)
   - Monthly reading goal

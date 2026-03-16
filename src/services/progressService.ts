@@ -1,4 +1,6 @@
-import {ProgressDBUtils, DailyStats, OverallLearningStats} from "../utils/database/progress";
+import {ProgressDBUtils, DailyStats, OverallLearningStats, ReadingStreak, BadgeProgress} from "../utils/database/progress";
+
+export type { BadgeProgress };
 
 export interface VocabularyItem {
     word: string;
@@ -66,6 +68,28 @@ class ProgressService {
         }
 
         return await this.dbUtils.getOverallLearningStats();
+    }
+
+    /**
+     * Get reading streak statistics
+     */
+    async getReadingStreak(): Promise<ReadingStreak> {
+        await this.init();
+        if (!this.dbUtils) {
+            return { currentStreak: 0, longestStreak: 0 };
+        }
+
+        return await this.dbUtils.getReadingStreak();
+    }
+
+    /**
+     * Get badge progress and unlock status
+     */
+    async getBadgeProgress(): Promise<BadgeProgress[]> {
+        await this.init();
+        if (!this.dbUtils) return [];
+
+        return await this.dbUtils.getBadgeProgress();
     }
 }
 
