@@ -92,17 +92,28 @@ export async function updateReadingSession(db: SQLite.SQLiteDatabase, wordsLooke
 
 export async function saveArticleMeta(db: SQLite.SQLiteDatabase, articleId: string, totalChars: number, uniqueChars: number, unknownChars: number, meta: ArticleMeta) {
     await db.runAsync(
-        `INSERT
-        OR REPLACE INTO article_meta
+        `INSERT INTO article_meta
           (article_id, total_chars, unique_chars, unknown_chars,
            hsk1_count, hsk2_count, hsk3_count, hsk4_count, hsk5_count, hsk6_count,
            non_hsk_count, read_count, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+         ON CONFLICT(article_id) DO UPDATE SET
+           total_chars = excluded.total_chars,
+           unique_chars = excluded.unique_chars,
+           unknown_chars = excluded.unknown_chars,
+           hsk1_count = excluded.hsk1_count,
+           hsk2_count = excluded.hsk2_count,
+           hsk3_count = excluded.hsk3_count,
+           hsk4_count = excluded.hsk4_count,
+           hsk5_count = excluded.hsk5_count,
+           hsk6_count = excluded.hsk6_count,
+           non_hsk_count = excluded.non_hsk_count,
+           updated_at = excluded.updated_at`,
         [
             articleId, totalChars, uniqueChars, unknownChars,
             meta.hsk1Count, meta.hsk2Count, meta.hsk3Count,
             meta.hsk4Count, meta.hsk5Count, meta.hsk6Count,
-            meta.nonHskCount, meta.readCount || 0, Date.now(),
+            meta.nonHskCount, Date.now(),
         ]
     );
 }
@@ -193,12 +204,31 @@ export async function completeReadingSession(db: SQLite.SQLiteDatabase, sessionI
         characters_displayed: string;
         words_displayed: string;
         familiarity_incremented: boolean;
+        article_id: string;
     }>(
-        'SELECT characters_displayed, words_displayed, familiarity_incremented FROM reading_sessions WHERE id = ?',
+        'SELECT characters_displayed, words_displayed, familiarity_incremented, article_id FROM reading_sessions WHERE id = ?',
         [sessionId]
     );
 
-    if (!session || session.familiarity_incremented) return;
+    if (!session) return;
+
+    // ALWAYS increment read count first (before the familiarity guard)
+    if (session.article_id) {
+        await db.runAsync(
+            `INSERT INTO article_meta
+             (article_id, total_chars, unique_chars, unknown_chars,
+              hsk1_count, hsk2_count, hsk3_count, hsk4_count, hsk5_count, hsk6_count,
+              non_hsk_count, read_count, updated_at)
+             VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, ?)
+             ON CONFLICT(article_id) DO UPDATE SET
+               read_count = read_count + 1,
+               updated_at = excluded.updated_at`,
+            [session.article_id, now]
+        );
+    }
+
+    // Skip familiarity increment if already done
+    if (session.familiarity_incremented) return;
 
     const characters = session.characters_displayed ? JSON.parse(session.characters_displayed) : [];
     const words = session.words_displayed ? JSON.parse(session.words_displayed) : [];
@@ -242,18 +272,6 @@ export async function completeReadingSession(db: SQLite.SQLiteDatabase, sessionI
         'UPDATE reading_sessions SET completed_at = ?, familiarity_incremented = 1 WHERE id = ?',
         [now, sessionId]
     );
-
-    // Increment read count for the article
-    const sessionInfo = await db.getFirstAsync<{ article_id: string }>(
-        'SELECT article_id FROM reading_sessions WHERE id = ?',
-        [sessionId]
-    );
-    if (sessionInfo) {
-        await db.runAsync(
-            'UPDATE article_meta SET read_count = read_count + 1 WHERE article_id = ?',
-            [sessionInfo.article_id]
-        );
-    }
 }
 
 export async function cancelReadingSession(db: SQLite.SQLiteDatabase, sessionId: number): Promise<void> {

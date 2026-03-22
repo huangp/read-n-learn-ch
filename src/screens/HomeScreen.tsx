@@ -37,7 +37,10 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
 
-  const [articles, setArticles] = useState<Article[]>([]);
+  // Source of truth - loaded once from database
+  const [allArticles, setAllArticles] = useState<Article[]>([]);
+  // Filtered view of articles for display
+  const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
   const [metaMap, setMetaMap] = useState<Map<string, ArticleMeta>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -46,13 +49,17 @@ export default function HomeScreen() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
+  // Load articles from database - single source of truth
   const loadArticles = async () => {
     try {
       const data = await StorageService.getAllArticles();
-      setArticles(data);
+      setAllArticles(data);
+      
       const meta = await CharacterRecognitionService.getAllArticleMeta();
       setMetaMap(meta);
+      
       // Load all tags
       const tags = await ArticleTagsService.getAllTags();
       setAllTags(tags.sort()); // Sort alphabetically
@@ -63,12 +70,16 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSearch = async () => {
-    let results: Article[];
+  // Apply filters in-memory (no database calls)
+  const applyFilters = useCallback(() => {
+    let results = [...allArticles];
+    
+    // Apply search filter
     if (searchQuery.trim()) {
-      results = await StorageService.searchArticles(searchQuery);
-    } else {
-      results = await StorageService.getAllArticles();
+      const lowerQuery = searchQuery.toLowerCase();
+      results = results.filter(article => 
+        article.title?.toLowerCase().includes(lowerQuery)
+      );
     }
     
     // Apply tag filter with OR logic
@@ -78,13 +89,27 @@ export default function HomeScreen() {
       );
     }
     
-    setArticles(results);
-  };
+    // Apply unread filter
+    if (showUnreadOnly) {
+      results = results.filter(article => {
+        const meta = metaMap.get(article.id);
+        return !meta || meta.readCount === 0;
+      });
+    }
+    
+    setFilteredArticles(results);
+  }, [allArticles, searchQuery, selectedTags, showUnreadOnly, metaMap]);
+
+  // Re-filter when filter criteria or data changes
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const clearAllFilters = () => {
     setSelectedTags([]);
     setSearchQuery('');
-    loadArticles();
+    setShowUnreadOnly(false);
+    // applyFilters will run automatically via useEffect
   };
 
   const toggleTag = (tag: string) => {
@@ -95,11 +120,6 @@ export default function HomeScreen() {
       return newTags;
     });
   };
-
-  // Re-filter articles when selected tags change
-  useEffect(() => {
-    handleSearch();
-  }, [selectedTags]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -235,7 +255,6 @@ export default function HomeScreen() {
         placeholder="Search articles..."
         onChangeText={setSearchQuery}
         value={searchQuery}
-        onSubmitEditing={handleSearch}
         style={styles.searchbar}
       />
 
@@ -264,21 +283,29 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
-          {(selectedTags.length > 0 || searchQuery.trim()) && (
-            <Button
-              mode="text"
-              onPress={clearAllFilters}
-              style={styles.clearButton}
-              compact
-            >
-              Clear All
-            </Button>
-          )}
+          <Button
+            mode="text"
+            onPress={() => setShowUnreadOnly(!showUnreadOnly)}
+            style={styles.unreadButton}
+            icon="book-open-variant"
+            compact
+          >
+            {showUnreadOnly ? 'All' : 'Unread only'}
+          </Button>
+          <Button
+            mode="text"
+            onPress={clearAllFilters}
+            style={styles.clearButton}
+            disabled={selectedTags.length === 0 && !searchQuery.trim() && !showUnreadOnly}
+            compact
+          >
+            Clear All
+          </Button>
         </View>
       )}
 
       <FlatList
-        data={articles}
+        data={filteredArticles}
         renderItem={renderArticle}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
@@ -439,7 +466,11 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     marginLeft: 8,
-    minWidth: 80,
+    width: 80,
+  },
+  unreadButton: {
+    marginLeft: 8,
+    width: 120,
   },
   titleRow: {
     flexDirection: 'row',

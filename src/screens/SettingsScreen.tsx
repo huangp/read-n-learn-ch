@@ -15,6 +15,8 @@ import {
   Surface,
   RadioButton,
   Button,
+  Portal,
+  Dialog,
 } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
@@ -53,6 +55,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const [debugMode, setDebugMode] = useState(false);
   const [fontSize, setFontSize] = useState(18);
+  const [aboutVisible, setAboutVisible] = useState(false);
 
   useEffect(() => {
     loadDebugMode();
@@ -123,7 +126,7 @@ export default function SettingsScreen() {
     {
       title: 'About',
       description: 'Read & Learn Chinese v1.0.0',
-      onPress: () => {},
+      onPress: () => setAboutVisible(true),
     },
     {
       title: 'Data Management',
@@ -225,6 +228,29 @@ export default function SettingsScreen() {
       <Text variant="bodyMedium" style={styles.footer}>
         Built with ❤️ for learning Chinese
       </Text>
+
+      <Portal>
+        <Dialog visible={aboutVisible} onDismiss={() => setAboutVisible(false)}>
+          <Dialog.Title>About Read & Learn Chinese</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.aboutText}>
+              Read & Learn Chinese is your personal Chinese reading companion. 
+              Import articles, tap on words to see definitions, and track your 
+              learning progress.
+            </Text>
+            <Text variant="titleSmall" style={styles.featuresTitle}>Key Features:</Text>
+            <Text variant="bodyMedium" style={styles.featureItem}>• Import articles from text or camera</Text>
+            <Text variant="bodyMedium" style={styles.featureItem}>• Tap-to-lookup dictionary with 100K+ entries</Text>
+            <Text variant="bodyMedium" style={styles.featureItem}>• HSK level tracking and vocabulary management</Text>
+            <Text variant="bodyMedium" style={styles.featureItem}>• Reading progress and statistics</Text>
+            <Text variant="bodyMedium" style={styles.featureItem}>• Cloud sync across devices</Text>
+            <Text variant="bodySmall" style={styles.versionText}>Version 1.0.0</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setAboutVisible(false)}>Close</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }
@@ -274,5 +300,23 @@ const styles = StyleSheet.create({
   footer: {
     padding: 40,
     textAlign: 'center',
+  },
+  aboutText: {
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  featuresTitle: {
+    marginTop: 8,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  featureItem: {
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  versionText: {
+    marginTop: 16,
+    textAlign: 'center',
+    color: '#666',
   },
 });

@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   resultsScroll: {
-    maxHeight: 400,
+    // Removed maxHeight to allow full content display
   },
   resultsText: {
     fontSize: 12,
