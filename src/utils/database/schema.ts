@@ -89,6 +89,7 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
     hsk5_count INTEGER DEFAULT 0,
     hsk6_count INTEGER DEFAULT 0,
     non_hsk_count INTEGER DEFAULT 0,
+    read_count INTEGER DEFAULT 0,
     updated_at INTEGER
   );
 

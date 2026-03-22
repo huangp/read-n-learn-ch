@@ -41,6 +41,7 @@ export interface ArticleMeta {
   hsk5Count: number;
   hsk6Count: number;
   nonHskCount: number;
+  readCount: number;
   updatedAt: number;
 }
 

@@ -68,8 +68,10 @@ describe('StorageService - Error Cases', () => {
 
   describe('saveArticle', () => {
     it('should throw error when AsyncStorage.setItem fails', async () => {
+      const { segmentArticle } = require('../segmentation');
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([]));
       (AsyncStorage.setItem as jest.Mock).mockRejectedValue(new Error('Write error'));
+      segmentArticle.mockResolvedValue([{ id: '1', text: 'Test', start: 0, end: 4, type: 'other', isInDictionary: false }]);
 
       await expect(
         StorageService.saveArticle({ title: 'Test', content: 'Content' })

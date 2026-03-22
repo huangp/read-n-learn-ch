@@ -297,6 +297,7 @@ class CharacterRecognitionService {
       hsk5Count: hskCounts[5],
       hsk6Count: hskCounts[6],
       nonHskCount: hskCounts.none,
+      readCount: 0,
       updatedAt: now,
     };
 

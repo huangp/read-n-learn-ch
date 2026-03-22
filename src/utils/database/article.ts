@@ -96,13 +96,13 @@ export async function saveArticleMeta(db: SQLite.SQLiteDatabase, articleId: stri
         OR REPLACE INTO article_meta
           (article_id, total_chars, unique_chars, unknown_chars,
            hsk1_count, hsk2_count, hsk3_count, hsk4_count, hsk5_count, hsk6_count,
-           non_hsk_count, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           non_hsk_count, read_count, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             articleId, totalChars, uniqueChars, unknownChars,
             meta.hsk1Count, meta.hsk2Count, meta.hsk3Count,
             meta.hsk4Count, meta.hsk5Count, meta.hsk6Count,
-            meta.nonHskCount, Date.now(),
+            meta.nonHskCount, meta.readCount || 0, Date.now(),
         ]
     );
 }
@@ -120,6 +120,7 @@ export async function getArticleMeta(db: SQLite.SQLiteDatabase, articleId: strin
         hsk5_count: number;
         hsk6_count: number;
         non_hsk_count: number;
+        read_count: number;
         updated_at: number;
     }>('SELECT * FROM article_meta WHERE article_id = ?', [articleId]);
 
@@ -137,6 +138,7 @@ export async function getArticleMeta(db: SQLite.SQLiteDatabase, articleId: strin
         hsk5Count: row.hsk5_count,
         hsk6Count: row.hsk6_count,
         nonHskCount: row.non_hsk_count,
+        readCount: row.read_count,
         updatedAt: row.updated_at,
     };
 }
@@ -157,6 +159,7 @@ export async function getAllArticleMeta(db: SQLite.SQLiteDatabase | null): Promi
         hsk5_count: number;
         hsk6_count: number;
         non_hsk_count: number;
+        read_count: number;
         updated_at: number;
     }>('SELECT * FROM article_meta');
 
@@ -173,6 +176,7 @@ export async function getAllArticleMeta(db: SQLite.SQLiteDatabase | null): Promi
             hsk5Count: row.hsk5_count,
             hsk6Count: row.hsk6_count,
             nonHskCount: row.non_hsk_count,
+            readCount: row.read_count,
             updatedAt: row.updated_at,
         });
     }
@@ -238,6 +242,18 @@ export async function completeReadingSession(db: SQLite.SQLiteDatabase, sessionI
         'UPDATE reading_sessions SET completed_at = ?, familiarity_incremented = 1 WHERE id = ?',
         [now, sessionId]
     );
+
+    // Increment read count for the article
+    const sessionInfo = await db.getFirstAsync<{ article_id: string }>(
+        'SELECT article_id FROM reading_sessions WHERE id = ?',
+        [sessionId]
+    );
+    if (sessionInfo) {
+        await db.runAsync(
+            'UPDATE article_meta SET read_count = read_count + 1 WHERE article_id = ?',
+            [sessionInfo.article_id]
+        );
+    }
 }
 
 export async function cancelReadingSession(db: SQLite.SQLiteDatabase, sessionId: number): Promise<void> {

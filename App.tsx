@@ -9,6 +9,7 @@ import { loadCoreDictionary, loadFullDictionary } from './src/services/dictionar
 import CharacterRecognitionService from './src/services/characterRecognition';
 import { ArticleTagsService } from './src/services/articleTags';
 import { useSubscriptionStore } from './src/store/subscriptionStore';
+import { loadInitialArticles } from './src/services/initialArticles';
 
 export default function App() {
   // Preload dictionary data at startup so lookups are instant
@@ -29,6 +30,11 @@ export default function App() {
     // Initialize article tags index
     ArticleTagsService.refreshTagIndex().catch(error => {
       console.error('Failed to initialize article tags index:', error);
+    });
+    
+    // Load initial sample articles on first launch
+    loadInitialArticles().catch(error => {
+      console.error('Failed to load initial articles:', error);
     });
   }, []);
 

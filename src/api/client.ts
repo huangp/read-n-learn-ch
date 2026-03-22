@@ -3,8 +3,10 @@ import { TokenStorage } from './tokenStorage';
 import { DeviceInfoService } from './deviceInfo';
 import type { KeyRequest } from './generated/models/KeyRequest';
 
-// Get API base URL from environment or use placeholder
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod';
+// Get API base URL from environment
+// For local development: set in .env file (defaults to localhost:3000)
+// For EAS builds: configured in eas.json per build profile
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /**
  * API Client with automatic token management
@@ -184,6 +186,13 @@ export class ApiClient {
    * Check if API is properly configured
    */
   static isConfigured(): boolean {
-    return API_BASE_URL !== 'https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod';
+    return !!API_BASE_URL && API_BASE_URL.length > 0;
+  }
+
+  /**
+   * Get the current API base URL (for debugging)
+   */
+  static getBaseUrl(): string | undefined {
+    return API_BASE_URL;
   }
 }

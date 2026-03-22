@@ -1,21 +1,81 @@
 # API Configuration
 
-## Environment Variables
+## Environment Setup
 
-Add the following to your `.env` file or environment configuration:
+This project uses different API URLs for development and production environments.
+
+### Development (Local)
+
+For local development with the iOS Simulator:
 
 ```bash
-# API Base URL (replace YOUR_API_ID and region with your actual values)
-EXPO_PUBLIC_API_BASE_URL=https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/prod
+# Uses mock server on localhost:3000
+npm run ios
+# or
+npx expo start --ios
+```
+
+**Configuration:** `.env` file
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3000
+```
+
+### Production (EAS Builds)
+
+For production builds, the API URL is configured in `eas.json`:
+
+| Build Profile | API URL | Use Case |
+|--------------|---------|----------|
+| `development` | http://localhost:3000 | Dev client with simulator |
+| `development-device` | http://localhost:3000 | Dev client on physical device |
+| `preview` | https://readnlearnch-api.huangandgong.com | TestFlight/Internal testing |
+| `preview-simulator` | https://readnlearnch-api.huangandgong.com | Test production API on simulator |
+| `production` | https://readnlearnch-api.huangandgong.com | App Store release |
+
+## Build Commands
+
+### Local Development
+```bash
+# Start mock server
+npm run mock-server
+
+# Run on iOS simulator (uses localhost:3000)
+npm run ios
+```
+
+### EAS Cloud Builds
+```bash
+# Install EAS CLI (if not already installed)
+npm install -g eas-cli
+
+# Login to Expo
+eas login
+
+# Configure project (first time only)
+eas build:configure
+
+# Build for preview (TestFlight/Internal testing)
+eas build --profile preview --platform ios
+
+# Build for production (App Store)
+eas build --profile production --platform ios
+
+# Build for Android
+eas build --profile production --platform android
 ```
 
 ## Setup Instructions
 
-1. **Set your API Base URL:**
-   - Replace `YOUR_API_ID` with your actual API Gateway ID
-   - Replace `us-east-1` with your AWS region if different
+1. **Local Development:**
+   - The `.env` file is already configured for localhost:3000
+   - Start the mock server: `npm run mock-server`
+   - Run the app: `npm run ios`
 
-2. **Regenerate API client (if API spec changes):**
+2. **Production API:**
+   - The production URL is already configured in `eas.json`
+   - No changes needed unless the API URL changes
+
+3. **Regenerate API client (if API spec changes):**
    ```bash
    npm run generate:api
    ```

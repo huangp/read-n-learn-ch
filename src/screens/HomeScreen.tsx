@@ -157,9 +157,17 @@ export default function HomeScreen() {
       >
         <Card.Content style={styles.cardContent}>
           <View style={styles.contentWrapper}>
-            <Text variant="titleMedium" numberOfLines={2}>
-              {item.title || 'Untitled'}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text variant="titleMedium" numberOfLines={2} style={styles.titleText}>
+                {item.title || 'Untitled'}
+              </Text>
+              {meta && meta.readCount > 0 && (
+                <View style={styles.readCountBadge}>
+                  <Icon source="eye-check" size={14} color="#fff" />
+                  <Text style={styles.readCountText}>{meta.readCount}</Text>
+                </View>
+              )}
+            </View>
              <Text variant="bodyMedium" numberOfLines={2} style={styles.articlePreview}>
                {item.content}
              </Text>
@@ -432,5 +440,29 @@ const styles = StyleSheet.create({
   clearButton: {
     marginLeft: 8,
     minWidth: 80,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  titleText: {
+    flex: 1,
+    marginRight: 8,
+  },
+  readCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    gap: 4,
+  },
+  readCountText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
