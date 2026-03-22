@@ -21,7 +21,7 @@ const BenefitCard = () => (
       <Card.Content>
         <List.Item title="More articles from cloud API" left={() => <List.Icon icon="cloud" />} />
         <List.Item title="Lookup with example sentences from cloud API" left={() => <List.Icon icon="magnify" />} />
-        <List.Item title="Personalised AI generated articles to re-enforce learning characters" left={() => <List.Icon icon="star" />} />
+        {/*<List.Item title="Personalised AI generated articles to re-enforce learning characters" left={() => <List.Icon icon="star" />} />*/}
       </Card.Content>
     </Card>
 )

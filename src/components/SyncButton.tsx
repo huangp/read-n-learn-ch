@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { IconButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArticleSyncService } from '../services/articleSync';
-import { SubscriptionManager } from '../services/subscription/SubscriptionManager';
+import SubscriptionManager from '../services/subscription/SubscriptionManager';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 
 interface SyncButtonProps {

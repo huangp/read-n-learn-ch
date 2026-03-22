@@ -21,8 +21,10 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Purchases from 'react-native-purchases';
 import { RootStackParamList } from '../types';
 import { useSubscriptionStore } from '../store/subscriptionStore';
+import SubscriptionManager from '../services/subscription/SubscriptionManager';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -106,7 +108,10 @@ export default function SettingsScreen() {
       // Clear persisted storage
       await AsyncStorage.removeItem('subscription-storage');
       
-      Alert.alert('Cache Cleared', 'Subscription cache has been cleared. Restart the app to reload subscription data.');
+      // Invalidate RevenueCat cache
+      await Purchases.invalidateCustomerInfoCache();
+      
+      Alert.alert('Cache Cleared', 'Subscription cache has been cleared. A new anonymous user ID has been generated. Restart the app to reload subscription data.');
     } catch (error) {
       console.error('Error clearing cache:', error);
       Alert.alert('Error', 'Failed to clear cache');
@@ -222,6 +227,31 @@ export default function SettingsScreen() {
                     onPress={clearSubscriptionCache}
                     right={props => <List.Icon {...props} icon="delete" />}
                   />
+                  <Divider />
+                  <List.Item
+                    title="Create New Test User"
+                    description="Log out and create new anonymous user (unsubscribed)"
+                    onPress={async () => {
+                      try {
+                        const success = await SubscriptionManager.logOut();
+                        if (success) {
+                          Alert.alert(
+                            'New Test User Created',
+                            'A new anonymous user has been created. Please restart the app to see the unsubscribed state.'
+                          );
+                        } else {
+                          Alert.alert(
+                            'Already Anonymous',
+                            'Current user is already anonymous. To test unsubscribed state, you need to:\n\n1. Purchase a subscription first\n2. Then create a new test user\n\nOr wait for the current sandbox subscription to expire.'
+                          );
+                        }
+                      } catch (error) {
+                        console.error('Error creating new test user:', error);
+                        Alert.alert('Error', 'Failed to create new test user');
+                      }
+                    }}
+                    right={props => <List.Icon {...props} icon="account-switch" />}
+                  />
                 </>
               )}
             </>
@@ -230,7 +260,7 @@ export default function SettingsScreen() {
       </Surface>
 
       <Text variant="bodyMedium" style={styles.footer}>
-        Built with ❤️ for learning Chinese
+        For Amelia and Jayden, built with ❤️ for learning Chinese. 嘟嘟皮皮加油！
       </Text>
 
       <Portal>
@@ -247,7 +277,7 @@ export default function SettingsScreen() {
             <Text variant="bodyMedium" style={styles.featureItem}>• Tap-to-lookup dictionary with 100K+ entries</Text>
             <Text variant="bodyMedium" style={styles.featureItem}>• HSK level tracking and vocabulary management</Text>
             <Text variant="bodyMedium" style={styles.featureItem}>• Reading progress and statistics</Text>
-            <Text variant="bodyMedium" style={styles.featureItem}>• Cloud sync across devices</Text>
+            <Text variant="bodyMedium" style={styles.featureItem}>• Cloud lookup and sync for subscribed user</Text>
             <Text variant="bodySmall" style={styles.versionText}>Version 1.0.0</Text>
           </Dialog.Content>
           <Dialog.Actions>

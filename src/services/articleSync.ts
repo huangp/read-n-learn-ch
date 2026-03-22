@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiClient } from '../api/client';
 import { StorageService } from './storage';
-import { SubscriptionManager } from './subscription/SubscriptionManager';
+import SubscriptionManager from './subscription/SubscriptionManager';
 import { segmentArticle } from './segmentation';
 import type { Article } from '../types';
 

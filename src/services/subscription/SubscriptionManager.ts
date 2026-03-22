@@ -15,8 +15,9 @@ import {
 // RevenueCat API Keys - Replace with your actual keys
 const REVENUECAT_API_KEYS = {
   // TODO this is Test Store api Key
-  ios: 'test_fPzHynWmeHaSJTqWWfAvNDKNLQQ',
-  android: 'YOUR_ANDROID_PUBLIC_SDK_KEY',
+  // ios: 'test_fPzHynWmeHaSJTqWWfAvNDKNLQQ',
+  ios: 'appl_GxmQkNQAzAyhHjxkoXktiuBZZmI',
+  // android: 'YOUR_ANDROID_PUBLIC_SDK_KEY',
 };
 
 // Entitlement identifier for cloud access
@@ -26,7 +27,7 @@ const CLOUD_ACCESS_ENTITLEMENT = 'readnlearnch Pro';
  * SubscriptionManager - Handles all in-app purchase operations
  * Wraps RevenueCat SDK for subscription management
  */
-export class SubscriptionManager {
+class SubscriptionManager {
   private static listeners: SubscriptionListener[] = [];
   private static isInitialized = false;
 
@@ -42,9 +43,8 @@ export class SubscriptionManager {
     try {
       // Configure RevenueCat with placeholder keys
       // Replace with actual keys before production
-      const apiKey = Platform.OS === 'ios' 
-        ? REVENUECAT_API_KEYS.ios 
-        : REVENUECAT_API_KEYS.android;
+      const apiKey =
+        REVENUECAT_API_KEYS.ios;
 
       Purchases.configure({ apiKey });
 
@@ -85,7 +85,7 @@ export class SubscriptionManager {
       for (const pkg of offerings.current.availablePackages) {
         const product = pkg.product;
         // Use packageType from RevenueCat to determine period (more reliable than identifier matching)
-        const period = pkg.packageType === 'ANNUAL' || pkg.packageType === 'ANNUAL_RENEWAL' 
+        const period = pkg.packageType === 'ANNUAL'
           ? 'yearly' 
           : 'monthly';
 
@@ -290,7 +290,42 @@ export class SubscriptionManager {
       }
     });
   }
+
+  /**
+   * Log out current user and create new anonymous user
+   * This effectively resets subscription state for testing
+   * Only available in development mode
+   */
+  static async logOut(): Promise<boolean> {
+    try {
+      // Check if user is anonymous - can't log out anonymous users
+      const customerInfo = await Purchases.getCustomerInfo();
+      const isAnonymous = customerInfo.originalAppUserId?.startsWith('$RCAnonymousID');
+      
+      if (isAnonymous) {
+        console.log('[SubscriptionManager] User is already anonymous, skipping logOut');
+        return false;
+      }
+      
+      await Purchases.logOut();
+      console.log('[SubscriptionManager] Logged out, new anonymous user created');
+      return true;
+    } catch (error) {
+      console.error('[SubscriptionManager] Log out failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current App User ID for debugging
+   * Only available in development mode
+   */
+  static async getAppUserID(): Promise<string> {
+    return await Purchases.getAppUserID();
+  }
 }
+
+export default SubscriptionManager
 
 // Import Platform for OS detection
 import { Platform } from 'react-native';
