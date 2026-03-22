@@ -35,8 +35,19 @@ export type {
 class CharacterRecognitionService {
   private db: SQLite.SQLiteDatabase | null = null;
   private vocabularyDBUtils: VocabularyDBUtils | null = null;
+  private initPromise: Promise<void> | null = null;
 
   async initialize(): Promise<void> {
+    // Prevent duplicate initialization
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = this.doInitialize();
+    return this.initPromise;
+  }
+
+  private async doInitialize(): Promise<void> {
     try {
       await initializeCharacterRecognitionDB();
 
@@ -312,6 +323,7 @@ class CharacterRecognitionService {
    * Get stored article metadata. Returns null if not computed yet.
    */
   async getArticleMeta(articleId: string): Promise<ArticleMeta | null> {
+    await this.initialize();
     if (!this.db) return null;
 
     return await getArticleMeta(this.db, articleId);
@@ -322,6 +334,7 @@ class CharacterRecognitionService {
    * Returns a Map<articleId, ArticleMeta>.
    */
   async getAllArticleMeta(): Promise<Map<string, ArticleMeta>> {
+    await this.initialize();
     return getAllArticleMeta(this.db);
   }
 

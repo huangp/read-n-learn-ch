@@ -193,33 +193,37 @@ export default function SettingsScreen() {
               {index < settingsItems.length - 1 && <Divider />}
             </React.Fragment>
           ))}
-          <Divider />
-          <List.Item
-            title="Debug Mode"
-            description="Enable logging for troubleshooting"
-            right={() => (
-              <Switch
-                value={debugMode}
-                onValueChange={toggleDebugMode}
-              />
-            )}
-          />
-          {debugMode && (
+          {__DEV__ && (
             <>
               <Divider />
               <List.Item
-                title="Debug Database"
-                description="Query SQLite database directly"
-                onPress={() => navigation.navigate('DebugDatabase')}
-                right={props => <List.Icon {...props} icon="database" />}
+                title="Debug Mode"
+                description="Enable logging for troubleshooting"
+                right={() => (
+                  <Switch
+                    value={debugMode}
+                    onValueChange={toggleDebugMode}
+                  />
+                )}
               />
-              <Divider />
-              <List.Item
-                title="Clear Subscription Cache"
-                description="Clear RevenueCat and subscription data"
-                onPress={clearSubscriptionCache}
-                right={props => <List.Icon {...props} icon="delete" />}
-              />
+              {debugMode && (
+                <>
+                  <Divider />
+                  <List.Item
+                    title="Debug Database"
+                    description="Query SQLite database directly"
+                    onPress={() => navigation.navigate('DebugDatabase')}
+                    right={props => <List.Icon {...props} icon="database" />}
+                  />
+                  <Divider />
+                  <List.Item
+                    title="Clear Subscription Cache"
+                    description="Clear RevenueCat and subscription data"
+                    onPress={clearSubscriptionCache}
+                    right={props => <List.Icon {...props} icon="delete" />}
+                  />
+                </>
+              )}
             </>
           )}
         </List.Section>
