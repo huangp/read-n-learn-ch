@@ -95,7 +95,7 @@ export class StorageService {
           // Remove old tags that are no longer used
           const removedTags = oldTags.filter(tag => !normalizedTags?.includes(tag));
           if (removedTags.length > 0) {
-            ArticleTagsService.removeTagsFromIndex(removedTags).catch(err =>
+            ArticleTagsService.removeTagsFromIndex(removedTags, articles).catch(err =>
               console.warn('[storage] Failed to remove old tags from index:', err)
             );
           }
@@ -150,7 +150,7 @@ export class StorageService {
       
       // Remove tags from index if article had tags
       if (articleToDelete?.tags && articleToDelete.tags.length > 0) {
-        ArticleTagsService.removeTagsFromIndex(articleToDelete.tags).catch(err =>
+        ArticleTagsService.removeTagsFromIndex(articleToDelete.tags, filtered).catch(err =>
           console.warn('[storage] Failed to remove tags from index:', err)
         );
       }

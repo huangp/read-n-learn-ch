@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StorageService } from './storage';
+import { Article } from '../types';
 
 const TAGS_INDEX_KEY = '@article_tags_index';
 
@@ -44,13 +44,12 @@ export class ArticleTagsService {
    * Remove tags from the global index
    * Only removes if no other articles use these tags
    */
-  static async removeTagsFromIndex(tags: string[]): Promise<void> {
+  static async removeTagsFromIndex(tags: string[], articles: Article[]): Promise<void> {
     if (!tags || tags.length === 0) return;
     
     try {
       const currentTags = await this.getAllTags();
-      const articles = await StorageService.getAllArticles();
-      
+
       // Check which tags are still used by other articles
       const tagsToRemove = tags.map(t => t.toLowerCase().trim());
       const stillUsedTags = new Set<string>();
@@ -78,9 +77,8 @@ export class ArticleTagsService {
    * Refresh the entire tags index by scanning all articles
    * Use this for maintenance or initial setup
    */
-  static async refreshTagIndex(): Promise<void> {
+  static async refreshTagIndex(articles: Article[]): Promise<void> {
     try {
-      const articles = await StorageService.getAllArticles();
       const allTags = new Set<string>();
       
       for (const article of articles) {

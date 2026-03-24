@@ -10,31 +10,29 @@ import CharacterRecognitionService from './src/services/characterRecognition';
 import { ArticleTagsService } from './src/services/articleTags';
 import { useSubscriptionStore } from './src/store/subscriptionStore';
 import { loadInitialArticles } from './src/services/initialArticles';
+import { StorageService } from './src/services/storage';
 
 export default function App() {
   // Preload dictionary data at startup so lookups are instant
   useEffect(() => {
-    loadCoreDictionary().then(() => loadFullDictionary());
-    
-    // Initialize character recognition database
-    CharacterRecognitionService.initialize().catch(error => {
-      console.error('Failed to initialize character recognition service:', error);
-    });
-    
-    // Initialize subscription manager (RevenueCat)
-    const initializeSubscription = useSubscriptionStore.getState().initialize;
-    initializeSubscription().catch(error => {
-      console.error('Failed to initialize subscription service:', error);
-    });
-    
-    // Initialize article tags index
-    ArticleTagsService.refreshTagIndex().catch(error => {
-      console.error('Failed to initialize article tags index:', error);
-    });
-    
-    // Load initial sample articles on first launch
-    loadInitialArticles().catch(error => {
-      console.error('Failed to load initial articles:', error);
+    const init = async () => {
+      // Dictionary loading is independent — start in parallel
+      loadCoreDictionary().then(() => loadFullDictionary());
+
+      // Database must be ready before anything that writes to it
+      await CharacterRecognitionService.initialize();
+
+      // These can run concurrently now that the DB is ready
+      const articles = await StorageService.getAllArticles();
+      await Promise.allSettled([
+        useSubscriptionStore.getState().initialize(),
+        ArticleTagsService.refreshTagIndex(articles),
+        loadInitialArticles(),
+      ]);
+    };
+
+    init().catch(error => {
+      console.error('Failed to initialize app:', error);
     });
   }, []);
 

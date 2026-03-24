@@ -85,7 +85,7 @@ export default function HomeScreen() {
     // Apply tag filter with OR logic
     if (selectedTags.length > 0) {
       results = results.filter(article => 
-        selectedTags.some(tag => article.tags?.includes(tag))
+        selectedTags.some(tag => article.tags?.some(t => t.toLowerCase() === tag.toLowerCase()))
       );
     }
     

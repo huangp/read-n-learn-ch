@@ -74,7 +74,6 @@ export const CHARACTER_RECOGNITION_SCHEMA = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_reading_sessions_article ON reading_sessions(article_id);
-  CREATE INDEX IF NOT EXISTS idx_exposure_log_character ON character_exposure_log(character);
   CREATE INDEX IF NOT EXISTS idx_lookup_log_word ON word_lookup_log(word);
 
   CREATE TABLE IF NOT EXISTS article_meta (

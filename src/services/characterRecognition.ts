@@ -256,6 +256,7 @@ class CharacterRecognitionService {
     content: string,
     words: string[]
   ): Promise<ArticleMeta> {
+    await this.initialize();
     if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
     const now = Date.now();
 
