@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,6 +20,7 @@ import {
   Snackbar,
   Chip,
   Button,
+  Menu,
 } from 'react-native-paper';
 import { ScrollView } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -28,7 +29,7 @@ import { Article, RootStackParamList } from '../types';
 import { StorageService } from '../services/storage';
 import CharacterRecognitionService, { ArticleMeta } from '../services/characterRecognition';
 import { ArticleTagsService } from '../services/articleTags';
-import { SyncButton } from '../components/SyncButton';
+import { SyncButton, SyncButtonRef } from '../components/SyncButton';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -50,6 +51,12 @@ export default function HomeScreen() {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [tagMenuVisible, setTagMenuVisible] = useState(false);
+  const isSmallScreen = width < 600;
+  const syncButtonRef = useRef<SyncButtonRef>(null);
+  // Show tag dropdown on small screen if there are many tags
+  const showTagDropdown = isSmallScreen && allTags.length > 2;
 
   // Load articles from database - single source of truth
   const loadArticles = async () => {
@@ -243,12 +250,27 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.Content title="Read and Learn Chinese" />
-        <SyncButton onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} />
-        <Appbar.Action icon="chart-line" onPress={() => navigation.navigate('Progress')} />
-        <Appbar.Action icon="translate" onPress={() => navigation.navigate('CharacterBrowser')} />
-        <Appbar.Action icon="crown" onPress={() => navigation.navigate('Subscription')} />
-        {/*<Appbar.Action icon="tag-multiple" onPress={() => navigation.navigate('TagManagement')} />*/}
-        <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
+        <SyncButton ref={syncButtonRef} onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} hidden={isSmallScreen} />
+        {isSmallScreen ? (
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={<Appbar.Action icon="dots-vertical" onPress={() => setMenuVisible(true)} />}
+          >
+            <Menu.Item leadingIcon="cloud-download" title="Cloud Sync (Premium)" onPress={() => { setMenuVisible(false); syncButtonRef.current?.triggerSync(); }} />
+            <Menu.Item leadingIcon="chart-line" title="Progress" onPress={() => { setMenuVisible(false); navigation.navigate('Progress'); }} />
+            <Menu.Item leadingIcon="translate" title="Vocabulary" onPress={() => { setMenuVisible(false); navigation.navigate('CharacterBrowser'); }} />
+            <Menu.Item leadingIcon="crown" title="Premium Subscription" onPress={() => { setMenuVisible(false); navigation.navigate('Subscription'); }} />
+            <Menu.Item leadingIcon="cog" title="Settings" onPress={() => { setMenuVisible(false); navigation.navigate('Settings'); }} />
+          </Menu>
+        ) : (
+          <>
+            <Appbar.Action icon="chart-line" onPress={() => navigation.navigate('Progress')} />
+            <Appbar.Action icon="translate" onPress={() => navigation.navigate('CharacterBrowser')} />
+            <Appbar.Action icon="crown" onPress={() => navigation.navigate('Subscription')} />
+            <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
+          </>
+        )}
       </Appbar.Header>
 
       <Searchbar
@@ -258,51 +280,91 @@ export default function HomeScreen() {
         style={styles.searchbar}
       />
 
-      {/* Tag Filter */}
-      {allTags.length > 0 && (
-        <View style={styles.filterContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tagFilterContent}
-          >
-            {allTags.map(tag => {
-              const isSelected = selectedTags.includes(tag);
-              return (
-                <Chip
-                  key={tag}
-                  selected={isSelected}
-                  onPress={() => toggleTag(tag)}
-                  style={isSelected ? styles.filterChipSelected : styles.filterChip}
-                  showSelectedCheck={false}
-                  icon={isSelected ? 'check-circle' : 'checkbox-blank-circle-outline'}
+      {/* Tag Filter - always rendered to prevent layout shift */}
+      <View style={styles.filterContainer}>
+        {allTags.length > 0 ? (
+          <>
+            {showTagDropdown ? (
+              <>
+                <Button
+                  mode="outlined"
+                  onPress={() => setTagMenuVisible(true)}
+                  style={styles.tagDropdownButton}
+                  icon="tag-multiple"
                   compact
                 >
-                  {tag}
-                </Chip>
-              );
-            })}
-          </ScrollView>
-          <Button
-            mode="text"
-            onPress={() => setShowUnreadOnly(!showUnreadOnly)}
-            style={styles.unreadButton}
-            icon="book-open-variant"
-            compact
-          >
-            {showUnreadOnly ? 'All' : 'Unread only'}
-          </Button>
-          <Button
-            mode="text"
-            onPress={clearAllFilters}
-            style={styles.clearButton}
-            disabled={selectedTags.length === 0 && !searchQuery.trim() && !showUnreadOnly}
-            compact
-          >
-            Clear All
-          </Button>
-        </View>
-      )}
+                  Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
+                </Button>
+                <Menu
+                  visible={tagMenuVisible}
+                  onDismiss={() => setTagMenuVisible(false)}
+                  anchor={<View style={styles.menuAnchor} />}
+                  contentStyle={styles.tagMenuContent}
+                >
+                  {allTags.map(tag => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <Menu.Item
+                        key={tag}
+                        title={tag}
+                        leadingIcon={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                        onPress={() => {
+                          toggleTag(tag);
+                        }}
+                      />
+                    );
+                  })}
+                </Menu>
+              </>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tagFilterContent}
+              >
+                {allTags.map(tag => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <Chip
+                      key={tag}
+                      selected={isSelected}
+                      onPress={() => toggleTag(tag)}
+                      style={isSelected ? styles.filterChipSelected : styles.filterChip}
+                      showSelectedCheck={false}
+                      icon={isSelected ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                      compact
+                    >
+                      {tag}
+                    </Chip>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <View style={styles.filterActions}>
+              <Button
+                mode="text"
+                onPress={() => setShowUnreadOnly(!showUnreadOnly)}
+                style={styles.unreadButton}
+                icon="book-open-variant"
+                compact
+              >
+                {showUnreadOnly ? 'All' : 'Unread only'}
+              </Button>
+              <Button
+                mode="text"
+                onPress={clearAllFilters}
+                style={styles.clearButton}
+                disabled={selectedTags.length === 0 && !searchQuery.trim() && !showUnreadOnly}
+                compact
+              >
+                Clear All
+              </Button>
+            </View>
+          </>
+        ) : (
+          <View style={styles.filterPlaceholder} />
+        )}
+      </View>
 
       <FlatList
         data={filteredArticles}
@@ -466,7 +528,25 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     marginLeft: 8,
-    width: 80,
+  },
+  filterActions: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterPlaceholder: {
+    flex: 1,
+    minHeight: 44,
+  },
+  tagDropdownButton: {
+    marginRight: 8,
+  },
+  menuAnchor: {
+    width: 1,
+    height: 1,
+  },
+  tagMenuContent: {
+    maxHeight: 300,
   },
   unreadButton: {
     marginLeft: 8,

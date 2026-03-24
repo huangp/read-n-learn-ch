@@ -479,12 +479,13 @@ const styles = StyleSheet.create({
   },
   bottomBarColumn: {
     flexDirection: 'column',
+    paddingVertical: 12,
   },
   bottomButton: {
-    flex: 1,
+    height: 44,
   },
   saveButton: {
-    flex: 1.5,
+    height: 44,
   },
   processingModal: {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',

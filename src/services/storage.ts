@@ -88,9 +88,7 @@ export class StorageService {
 
           // Update tags index
           if (normalizedTags) {
-            ArticleTagsService.addTagsToIndex(normalizedTags).catch(err =>
-              console.warn('[storage] Failed to update tags index:', err)
-            );
+            await ArticleTagsService.addTagsToIndex(normalizedTags);
           }
           // Remove old tags that are no longer used
           const removedTags = oldTags.filter(tag => !normalizedTags?.includes(tag));
@@ -124,9 +122,7 @@ export class StorageService {
 
       // Update tags index
       if (normalizedTags) {
-        ArticleTagsService.addTagsToIndex(normalizedTags).catch(err =>
-          console.warn('[storage] Failed to update tags index:', err)
-        );
+        await ArticleTagsService.addTagsToIndex(normalizedTags);
       }
 
       // Compute and save article meta

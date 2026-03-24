@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { IconButton } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArticleSyncService } from '../services/articleSync';
@@ -8,12 +8,21 @@ import { useSubscriptionStore } from '../store/subscriptionStore';
 interface SyncButtonProps {
   onSyncComplete?: (message: string) => void;
   onShowMessage?: (message: string) => void;
+  hidden?: boolean;
 }
 
-export function SyncButton({ onSyncComplete, onShowMessage }: SyncButtonProps) {
+export interface SyncButtonRef {
+  triggerSync: () => void;
+}
+
+export const SyncButton = React.forwardRef<SyncButtonRef, SyncButtonProps>(function SyncButton({ onSyncComplete, onShowMessage, hidden }, ref) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasCloudAccess, setHasCloudAccess] = useState(false);
   const [isSyncNeeded, setIsSyncNeeded] = useState(true);
+
+  React.useImperativeHandle(ref, () => ({
+    triggerSync: handlePress,
+  }));
 
   // Subscribe to subscription store for real-time updates
   const subscriptionStatus = useSubscriptionStore((state) => state.status);
@@ -82,6 +91,10 @@ export function SyncButton({ onSyncComplete, onShowMessage }: SyncButtonProps) {
 
   const isDisabled = isSyncing;
 
+  if (hidden) {
+    return null;
+  }
+
   return (
     <IconButton
       icon="cloud-download"
@@ -91,4 +104,4 @@ export function SyncButton({ onSyncComplete, onShowMessage }: SyncButtonProps) {
       loading={isSyncing}
     />
   );
-}
+});
