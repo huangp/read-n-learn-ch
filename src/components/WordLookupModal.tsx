@@ -149,7 +149,6 @@ export default function WordLookupModal({
   const handleApiLookup = useCallback(async () => {
     if (!isActive) {
       setShowPaywall(true);
-      console.log("---- inside first block");
       return;
     }
 

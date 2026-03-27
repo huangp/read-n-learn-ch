@@ -8,6 +8,10 @@ export type ObjectInfo = {
      */
     key?: string;
     /**
+     * Article title
+     */
+    title?: string;
+    /**
      * Object size in bytes
      */
     size?: number;

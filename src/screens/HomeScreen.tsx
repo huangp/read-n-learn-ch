@@ -30,6 +30,10 @@ import { StorageService } from '../services/storage';
 import CharacterRecognitionService, { ArticleMeta } from '../services/characterRecognition';
 import { ArticleTagsService } from '../services/articleTags';
 import { SyncButton, SyncButtonRef } from '../components/SyncButton';
+import { AvailableArticlesModal } from '../components/AvailableArticlesModal';
+import { PaywallModal } from '../components/subscription/PaywallModal';
+import { ApiClient } from '../api/client';
+import type { ObjectInfo } from '../api/generated';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -53,6 +57,9 @@ export default function HomeScreen() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [tagMenuVisible, setTagMenuVisible] = useState(false);
+  const [showAvailableArticles, setShowAvailableArticles] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [availableArticles, setAvailableArticles] = useState<ObjectInfo[]>([]);
   const isSmallScreen = width < 600;
   const syncButtonRef = useRef<SyncButtonRef>(null);
   // Show tag dropdown on small screen if there are many tags
@@ -74,6 +81,27 @@ export default function HomeScreen() {
       console.error('Error loading articles:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleShowAvailableArticles = async () => {
+    try {
+      const remoteObjects = await ApiClient.listObjects();
+      const remoteArticles = remoteObjects.objects || [];
+
+      const localArticles = await StorageService.getAllArticles();
+      const localKeys = new Set(localArticles.map(article => article.id));
+
+      const missingArticles = remoteArticles.filter(
+        obj => obj.key && !localKeys.has(obj.key)
+      );
+
+      setAvailableArticles(missingArticles);
+      setShowAvailableArticles(true);
+    } catch (error) {
+      console.error('[HomeScreen] Failed to fetch available articles:', error);
+      setSnackbarMessage('Unable to check for available articles');
+      setSnackbarVisible(true);
     }
   };
 
@@ -250,7 +278,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.Content title="Read and Learn Chinese" />
-        <SyncButton ref={syncButtonRef} onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} hidden={isSmallScreen} />
+        <SyncButton ref={syncButtonRef} onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} onShowAvailableArticles={handleShowAvailableArticles} hidden={isSmallScreen} />
         {isSmallScreen ? (
           <Menu
             visible={menuVisible}
@@ -408,6 +436,22 @@ export default function HomeScreen() {
       >
         {snackbarMessage}
       </Snackbar>
+
+      <AvailableArticlesModal
+        visible={showAvailableArticles}
+        onClose={() => setShowAvailableArticles(false)}
+        articles={availableArticles}
+        onSubscribe={() => {
+          setShowAvailableArticles(false);
+          setShowPaywall(true);
+        }}
+      />
+
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        featureName="cloud sync"
+      />
     </View>
   );
 }

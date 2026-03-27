@@ -3,6 +3,7 @@
 let mockObjects = [
   {
     key: 'chinese-text.txt',
+    title: '练习文章',
     size: 1536,
     lastModified: new Date().toISOString(),
   },

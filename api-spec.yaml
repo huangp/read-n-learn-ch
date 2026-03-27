@@ -345,6 +345,9 @@ components:
         key:
           type: string
           description: Object key
+        title:
+          type: string
+          description: Article title
         size:
           type: integer
           description: Object size in bytes
