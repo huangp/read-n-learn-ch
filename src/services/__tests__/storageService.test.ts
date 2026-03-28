@@ -266,14 +266,15 @@ describe('StorageService', () => {
   });
 
   describe('deleteArticle', () => {
+    const createdAt = Date.now();
     it('should delete article and cleanup', async () => {
       const mockArticles: Article[] = [
         {
           id: '1',
           title: 'Article 1',
           content: 'Content 1',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          createdAt: createdAt,
+          updatedAt: createdAt,
           wordCount: 10,
           tags: ['tag1', 'tag2'],
         },
@@ -281,8 +282,8 @@ describe('StorageService', () => {
           id: '2',
           title: 'Article 2',
           content: 'Content 2',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          createdAt: createdAt,
+          updatedAt: createdAt,
           wordCount: 20,
         },
       ];
@@ -296,7 +297,7 @@ describe('StorageService', () => {
         '@articles',
         expect.stringContaining('Article 2')
       );
-      expect(ArticleTagsService.removeTagsFromIndex).toHaveBeenCalledWith(['tag1', 'tag2']);
+      expect(ArticleTagsService.removeTagsFromIndex).toHaveBeenCalledWith(['tag1', 'tag2'], [{"content": "Content 2", "createdAt": createdAt, "id": "2", "title": "Article 2", "updatedAt": createdAt, "wordCount": 20}]);
       expect(CharacterRecognitionService.deleteArticleMeta).toHaveBeenCalledWith('1');
     });
 
@@ -306,8 +307,8 @@ describe('StorageService', () => {
           id: '1',
           title: 'Article 1',
           content: 'Content 1',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          createdAt: createdAt,
+          updatedAt: createdAt,
           wordCount: 10,
         },
       ];
