@@ -19,9 +19,24 @@ const BenefitCard = () => (
     <Card style={styles.featuresCard}>
       <Card.Title title="Your Benefits" />
       <Card.Content>
-        <List.Item title="More articles from cloud API" left={() => <List.Icon icon="cloud" />} />
-        <List.Item title="Lookup with example sentences from cloud API" left={() => <List.Icon icon="magnify" />} />
-        {/*<List.Item title="Personalised AI generated articles to re-enforce learning characters" left={() => <List.Icon icon="star" />} />*/}
+        <View style={styles.benefitRow}>
+          <List.Icon icon="cloud" />
+          <Text variant="bodyMedium" style={styles.benefitText}>
+            More articles from cloud API
+          </Text>
+        </View>
+        <View style={styles.benefitRow}>
+          <List.Icon icon="magnify" />
+          <Text variant="bodyMedium" style={styles.benefitText}>
+            Lookup with example sentences from cloud API
+          </Text>
+        </View>
+        <View style={styles.benefitRow}>
+          <List.Icon icon="star" />
+          <Text variant="bodyMedium" style={styles.benefitText}>
+            Personalised AI generated articles to re-enforce learning characters (coming soon)
+          </Text>
+        </View>
       </Card.Content>
     </Card>
 )
@@ -286,6 +301,16 @@ const styles = StyleSheet.create({
   featuresCard: {
     width: '100%',
     marginBottom: 24,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  benefitText: {
+    flex: 1,
+    marginLeft: 8,
+    flexWrap: 'wrap',
   },
   benefitsCard: {
     width: '100%',
