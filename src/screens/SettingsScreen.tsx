@@ -25,6 +25,8 @@ import Purchases from 'react-native-purchases';
 import { RootStackParamList } from '../types';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import SubscriptionManager from '../services/subscription/SubscriptionManager';
+import { FirstLaunchService } from '../services/firstLaunch';
+import { OnboardingModal } from '../components/OnboardingModal';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -58,6 +60,7 @@ export default function SettingsScreen() {
   const [debugMode, setDebugMode] = useState(false);
   const [fontSize, setFontSize] = useState(18);
   const [aboutVisible, setAboutVisible] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     loadDebugMode();
@@ -198,6 +201,13 @@ export default function SettingsScreen() {
               {index < settingsItems.length - 1 && <Divider />}
             </React.Fragment>
           ))}
+          <Divider />
+          <List.Item
+            title="Show Tutorial"
+            description="View the app tutorial again"
+            onPress={() => setShowOnboarding(true)}
+            right={props => <List.Icon {...props} icon="school" />}
+          />
           {__DEV__ && (
             <>
               <Divider />
@@ -252,6 +262,24 @@ export default function SettingsScreen() {
                     }}
                     right={props => <List.Icon {...props} icon="account-switch" />}
                   />
+                  <Divider />
+                  <List.Item
+                    title="Reset Onboarding"
+                    description="Show onboarding tutorial on next app launch"
+                    onPress={async () => {
+                      try {
+                        await FirstLaunchService.resetOnboarding();
+                        Alert.alert(
+                          'Onboarding Reset',
+                          'The onboarding tutorial will be shown the next time you open the Home screen.'
+                        );
+                      } catch (error) {
+                        console.error('Error resetting onboarding:', error);
+                        Alert.alert('Error', 'Failed to reset onboarding');
+                      }
+                    }}
+                    right={props => <List.Icon {...props} icon="replay" />}
+                  />
                 </>
               )}
             </>
@@ -285,6 +313,10 @@ export default function SettingsScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+      <OnboardingModal
+        visible={showOnboarding}
+        onComplete={() => setShowOnboarding(false)}
+      />
     </ScrollView>
   );
 }

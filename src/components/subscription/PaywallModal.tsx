@@ -20,7 +20,7 @@ interface PaywallModalProps {
 export function PaywallModal({ 
   visible, 
   onClose, 
-  featureName = 'this feature' 
+  featureName = 'Premium'
 }: PaywallModalProps) {
   const theme = useTheme();
   const { 
@@ -50,7 +50,7 @@ export function PaywallModal({
       >
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text variant="titleLarge" style={styles.title}>Upgrade to Pro</Text>
+            <Text variant="titleLarge" style={styles.title}>Upgrade to Premium</Text>
             <IconButton
               icon="close"
               size={24}

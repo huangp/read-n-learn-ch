@@ -128,9 +128,7 @@ export default function WordLookupModal({
 
   // Reset API state when modal closes or word changes
   useEffect(() => {
-    console.log('[WordLookupModal] Reset effect - visible:', visible, 'text:', text);
     if (!visible) {
-      console.log('[WordLookupModal] Resetting API state because visible is false');
       setApiResult(null);
       setUseApiResults(false);
       setApiError(null);
@@ -227,21 +225,26 @@ export default function WordLookupModal({
   );
 
   const renderApiToggle = () => {
+    // Show loading indicator when API is being fetched
+    if (isLoadingApi) {
+      return (
+        <View style={styles.loadingIndicator}>
+          <ActivityIndicator size="small" color="#5856D6" />
+          <Text style={styles.loadingText}>Looking up in cloud dictionary...</Text>
+        </View>
+      );
+    }
+
     // Don't show toggle if no API result yet
-    if (!apiResult && !isLoadingApi) {
+    if (!apiResult) {
       return (
         <TouchableOpacity
           style={styles.apiLookupButton}
           onPress={handleApiLookup}
-          disabled={isLoadingApi}
         >
-          {isLoadingApi ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.apiLookupButtonText}>
-              {isActive ? 'Cloud Lookup' : 'Cloud Lookup (Pro)'}
-            </Text>
-          )}
+          <Text style={styles.apiLookupButtonText}>
+            {isActive ? 'Cloud Lookup' : 'Cloud Lookup (Premium)'}
+          </Text>
         </TouchableOpacity>
       );
     }
@@ -414,9 +417,9 @@ export default function WordLookupModal({
             {renderHeader()}
             {renderApiToggle()}
             {renderDefinitions()}
-            {renderStrokeOrder()}
             {renderCharacterBreakdown()}
             {renderExamples()}
+            {renderStrokeOrder()}
           </ScrollView>
 
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -627,6 +630,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  loadingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 8,
   },
   toggleContainer: {
     flexDirection: 'row',
