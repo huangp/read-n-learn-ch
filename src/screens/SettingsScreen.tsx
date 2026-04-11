@@ -294,20 +294,71 @@ export default function SettingsScreen() {
       <Portal>
         <Dialog visible={aboutVisible} onDismiss={() => setAboutVisible(false)}>
           <Dialog.Title>About Read & Learn Chinese</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={styles.aboutText}>
-              Read & Learn Chinese is your personal Chinese reading companion. 
-              Import articles, tap on words to see definitions, and track your 
-              learning progress.
-            </Text>
-            <Text variant="titleSmall" style={styles.featuresTitle}>Key Features:</Text>
-            <Text variant="bodyMedium" style={styles.featureItem}>• Import articles from text or camera</Text>
-            <Text variant="bodyMedium" style={styles.featureItem}>• Tap-to-lookup dictionary with 100K+ entries</Text>
-            <Text variant="bodyMedium" style={styles.featureItem}>• HSK level tracking and vocabulary management</Text>
-            <Text variant="bodyMedium" style={styles.featureItem}>• Reading progress and statistics</Text>
-            <Text variant="bodyMedium" style={styles.featureItem}>• Cloud lookup and sync for subscribed user</Text>
-            <Text variant="bodySmall" style={styles.versionText}>Version 1.0.0</Text>
-          </Dialog.Content>
+          <Dialog.ScrollArea>
+            <ScrollView contentContainerStyle={styles.dialogScrollContent}>
+              <Text variant="bodyMedium" style={styles.aboutText}>
+                Read & Learn Chinese is your personal Chinese reading companion. 
+                Import articles, tap on words to see definitions, and track your 
+                learning progress.
+              </Text>
+              <Text variant="titleSmall" style={styles.featuresTitle}>Key Features:</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Import articles from text or camera</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Tap-to-lookup dictionary with 100K+ entries</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• HSK level tracking and vocabulary management</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Reading progress and statistics</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Cloud lookup and sync for subscribed user</Text>
+              
+              <Divider style={styles.aboutDivider} />
+              
+              <Text variant="titleSmall" style={styles.learningTitle}>Chinese Character Coverage</Text>
+              <Text variant="bodyMedium" style={styles.aboutText}>
+                Chinese characters (Hanzi) have a very high 'recurrence rate,' meaning a small group of 'core characters' accounts for the vast majority of what you'll see in writing. Based on data from the Table of Common Characters in Modern Chinese, here is the breakdown:
+              </Text>
+              
+              <Text variant="bodyMedium" style={styles.coverageItem}>
+                <Text style={styles.bold}>Top 600 Characters:</Text> Cover about 75% of written content. This aligns with what you read! At this level, you can grasp the gist of simple signs or text messages.
+              </Text>
+              
+              <Text variant="bodyMedium" style={styles.coverageItem}>
+                <Text style={styles.bold}>Top 1,000 Characters:</Text> Cover about 90%. You can now read most colloquial articles and everyday conversations.
+              </Text>
+              
+              <Text variant="bodyMedium" style={styles.coverageItem}>
+                <Text style={styles.bold}>Top 2,500 Characters:</Text> Cover about 98%. This is the standard for a primary school graduate in China. You can read newspapers, magazines, and websites without much trouble.
+              </Text>
+              
+              <Text variant="bodyMedium" style={styles.coverageItem}>
+                <Text style={styles.bold}>Top 3,500 Characters:</Text> Cover about 99.5%. This is the full list of 'common' characters. Once you hit this, you're functionally literate and rarely need a dictionary for novels or professional docs.
+              </Text>
+              
+              <Text variant="titleSmall" style={styles.learningTitle}>Why does 75% coverage still feel 'not enough'?</Text>
+              <Text variant="bodyMedium" style={styles.aboutText}>
+                Even if you know 75% of the characters, the remaining 25% usually contain the keywords (specific nouns or verbs). For example:
+              </Text>
+              <Text variant="bodyMedium" style={styles.exampleText}>
+                'Yesterday I [?] to the [?], it was very [?].'
+              </Text>
+              <Text variant="bodyMedium" style={styles.aboutText}>
+                Even if you know 80% of the sentence, if you don't know the [?] words, you still won't know what actually happened!
+              </Text>
+              
+              <Text variant="titleSmall" style={styles.learningTitle}>My Advice for Learning</Text>
+              
+              <Text variant="bodyMedium" style={styles.adviceItem}>
+                <Text style={styles.bold}>Set Milestone Goals:</Text> If you're a beginner, focus on the core vocabulary for HSK levels 1–4 first.
+              </Text>
+              
+              <Text variant="bodyMedium" style={styles.adviceItem}>
+                <Text style={styles.bold}>Learn Words, Not Just Characters:</Text> Modern Chinese is mostly made of two-character words. Knowing 'Fire' (火) and 'Vehicle' (车) is great, but you need to learn them together as 'Train' (火车). Always learn characters in the context of words.
+              </Text>
+              
+              <Text variant="bodyMedium" style={styles.adviceItem}>
+                <Text style={styles.bold}>Read Graded Readers:</Text> Once you know about 1,000 characters, stop memorizing lists and start reading Graded Readers. They use a controlled vocabulary to help you practice in a real story context.
+              </Text>
+              
+              <Text variant="bodySmall" style={styles.versionText}>Version 1.0.0</Text>
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setAboutVisible(false)}>Close</Button>
           </Dialog.Actions>
@@ -381,8 +432,38 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   versionText: {
-    marginTop: 16,
+    marginTop: 24,
     textAlign: 'center',
     color: '#666',
+  },
+  dialogScrollContent: {
+    paddingVertical: 8,
+  },
+  aboutDivider: {
+    marginVertical: 16,
+  },
+  learningTitle: {
+    marginTop: 16,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  coverageItem: {
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  exampleText: {
+    marginVertical: 12,
+    fontStyle: 'italic',
+    backgroundColor: '#f5f5f5',
+    padding: 12,
+    borderRadius: 8,
+    lineHeight: 22,
+  },
+  adviceItem: {
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  bold: {
+    fontWeight: '700',
   },
 });
