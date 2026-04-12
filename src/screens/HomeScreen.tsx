@@ -32,8 +32,6 @@ import { ArticleTagsService } from '../services/articleTags';
 import { SyncButton, SyncButtonRef } from '../components/SyncButton';
 import { AvailableArticlesModal } from '../components/AvailableArticlesModal';
 import { PaywallModal } from '../components/subscription/PaywallModal';
-import { OnboardingModal } from '../components/OnboardingModal';
-import { FirstLaunchService } from '../services/firstLaunch';
 import { ApiClient } from '../api/client';
 import type { ObjectInfo } from '../api/generated';
 
@@ -62,7 +60,6 @@ export default function HomeScreen() {
   const [showAvailableArticles, setShowAvailableArticles] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [availableArticles, setAvailableArticles] = useState<ObjectInfo[]>([]);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const isSmallScreen = width < 600;
   const syncButtonRef = useRef<SyncButtonRef>(null);
   // Show tag dropdown on small screen if there are many tags
@@ -179,27 +176,9 @@ export default function HomeScreen() {
 
   const onDismissSnackbar = () => setSnackbarVisible(false);
 
-  const handleOnboardingComplete = async () => {
-    setShowOnboarding(false);
-    await FirstLaunchService.markOnboardingSeen();
-  };
-
   useFocusEffect(
     useCallback(() => {
       loadArticles();
-    }, [])
-  );
-
-  // Check for first launch and show onboarding
-  useFocusEffect(
-    useCallback(() => {
-      const checkFirstLaunch = async () => {
-        const hasSeen = await FirstLaunchService.hasSeenOnboarding();
-        if (!hasSeen) {
-          setShowOnboarding(true);
-        }
-      };
-      checkFirstLaunch();
     }, [])
   );
 
@@ -472,11 +451,6 @@ export default function HomeScreen() {
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         featureName="cloud sync"
-      />
-
-      <OnboardingModal
-        visible={showOnboarding}
-        onComplete={handleOnboardingComplete}
       />
     </View>
   );
