@@ -37,7 +37,7 @@ const SLIDES: OnboardingSlide[] = [
     id: '3',
     title: 'Character Browser',
     description:
-      'Track which characters you know and which need practice. Build your vocabulary over time.',
+      'Track which characters you know and which need practice. Build your vocabulary over time. Click to lookup a single character. Long press to toggle between known and unknown.',
     icon: 'translate',
   },
   {

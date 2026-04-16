@@ -206,8 +206,11 @@ export default function ArticleDetailScreen() {
         const allWords = article.segments
           ?.filter(s => s.type === 'chinese')
           .map(s => s.text) || [];
-        CharacterRecognitionService.saveArticleMeta(articleId, article.content, allWords)
-          .catch(err => console.warn('[article] Failed to refresh article meta:', err));
+        try {
+          await CharacterRecognitionService.saveArticleMeta(articleId, article.content, allWords);
+        } catch (err) {
+          console.warn('[article] Failed to refresh article meta:', err);
+        }
       }
 
       setHasCompleted(true);

@@ -34,6 +34,7 @@ import { AvailableArticlesModal } from '../components/AvailableArticlesModal';
 import { PaywallModal } from '../components/subscription/PaywallModal';
 import { ApiClient } from '../api/client';
 import type { ObjectInfo } from '../api/generated';
+import { vocabularyStore } from '../store/vocabularyStore';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -60,8 +61,10 @@ export default function HomeScreen() {
   const [showAvailableArticles, setShowAvailableArticles] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [availableArticles, setAvailableArticles] = useState<ObjectInfo[]>([]);
+  const [isMetaStale, setIsMetaStale] = useState(false);
   const isSmallScreen = width < 600;
   const syncButtonRef = useRef<SyncButtonRef>(null);
+  const isRefreshingMetaRef = useRef(false);
   // Show tag dropdown on small screen if there are many tags
   const showTagDropdown = isSmallScreen && allTags.length > 2;
 
@@ -70,10 +73,10 @@ export default function HomeScreen() {
     try {
       const data = await StorageService.getAllArticles();
       setAllArticles(data);
-      
+
       const meta = await CharacterRecognitionService.getAllArticleMeta();
       setMetaMap(meta);
-      
+
       // Load all tags
       const tags = await ArticleTagsService.getAllTags();
       setAllTags(tags.sort()); // Sort alphabetically
@@ -81,6 +84,20 @@ export default function HomeScreen() {
       console.error('Error loading articles:', error);
     } finally {
       setLoading(false);
+    }
+
+    // Background refresh of article meta (non-blocking)
+    if (!isRefreshingMetaRef.current) {
+      isRefreshingMetaRef.current = true;
+      try {
+        await StorageService.refreshAllArticleMeta();
+        const refreshedMeta = await CharacterRecognitionService.getAllArticleMeta();
+        setMetaMap(refreshedMeta);
+      } catch (error) {
+        console.error('Error refreshing article meta:', error);
+      } finally {
+        isRefreshingMetaRef.current = false;
+      }
     }
   };
 
@@ -139,6 +156,30 @@ export default function HomeScreen() {
   useEffect(() => {
     applyFilters();
   }, [applyFilters]);
+
+  // React to vocabulary changes that affect article meta
+  const lastVocabularyChangeAt = vocabularyStore((state) => state.lastVocabularyChangeAt);
+  useEffect(() => {
+    if (lastVocabularyChangeAt === 0) return;
+
+    setIsMetaStale(true);
+
+    if (!isRefreshingMetaRef.current) {
+      isRefreshingMetaRef.current = true;
+      StorageService.refreshAllArticleMeta()
+        .then(() => CharacterRecognitionService.getAllArticleMeta())
+        .then((refreshedMeta) => {
+          setMetaMap(refreshedMeta);
+        })
+        .catch((error) => {
+          console.error('Error refreshing article meta on vocabulary change:', error);
+        })
+        .finally(() => {
+          isRefreshingMetaRef.current = false;
+          setIsMetaStale(false);
+        });
+    }
+  }, [lastVocabularyChangeAt]);
 
   const clearAllFilters = () => {
     setSelectedTags([]);
@@ -245,10 +286,14 @@ export default function HomeScreen() {
                 <Text variant="bodySmall" style={styles.separator}>•</Text>
                 <Text variant="bodySmall" style={styles.metaText}>{meta.uniqueChars} unique</Text>
                 
-                {meta.unknownChars > 0 && (
+                {(meta.unknownChars > 0 || isMetaStale) && (
                   <>
                     <Text variant="bodySmall" style={styles.separator}>•</Text>
-                    <Text variant="bodySmall" style={[styles.metaText, styles.newText]}>{meta.unknownChars} unfamiliar</Text>
+                    {isMetaStale ? (
+                      <ActivityIndicator animating={true} size={10} color="#FF9500" style={styles.metaLoader} />
+                    ) : (
+                      <Text variant="bodySmall" style={[styles.metaText, styles.newText]}>{meta.unknownChars} unfamiliar</Text>
+                    )}
                   </>
                 )}
               </>
@@ -517,6 +562,9 @@ const styles = StyleSheet.create({
   newText: {
     color: '#FF9500',
     fontWeight: '500',
+  },
+  metaLoader: {
+    marginLeft: 2,
   },
   hskText: {
     color: '#007AFF',

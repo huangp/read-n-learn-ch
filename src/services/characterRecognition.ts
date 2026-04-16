@@ -22,6 +22,7 @@ import {
 } from "../utils/database/article";
 
 import {searchDictionarySync} from "./dictionaryLoader";
+import { vocabularyStore } from '../store/vocabularyStore';
 
 // Re-export types from database utils for backward compatibility
 export type {
@@ -180,12 +181,14 @@ class CharacterRecognitionService {
 
     await updateReadingSession(this.db, wordsLookedUp, charactersLookedUp, sessionId);
 
-    // Decrease word familiarity (min 0)
-    this.vocabularyDBUtils.decreaseFamiliarity(word).catch(err =>
-      console.warn('[Learning] Failed to decrease familiarity for word:', word, err)
-    );
+    // Decrease word familiarity (min 0) - awaited because it changes is_known status
+    try {
+      await this.vocabularyDBUtils.decreaseFamiliarity(word);
+    } catch (err) {
+      console.warn('[Learning] Failed to decrease familiarity for word:', word, err);
+    }
 
-    // Log lookup
+    // Log lookup and tag updates (fire-and-forget)
     this.vocabularyDBUtils.logWordLookup(word, articleId!, sessionId).catch(err =>
       console.warn('[Learning] Failed to log word lookup:', word, err)
     );
@@ -206,12 +209,15 @@ class CharacterRecognitionService {
         console.warn('[Known] Failed to remove tag from character:', char, err)
       );
     }
+
+    vocabularyStore.getState().markArticleMetaStale();
   }
 
   async completeReadingSession(sessionId: number): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     await completeReadingSession(this.db, sessionId);
+    vocabularyStore.getState().markArticleMetaStale();
   }
 
   async cancelReadingSession(sessionId: number): Promise<void> {
@@ -347,11 +353,23 @@ class CharacterRecognitionService {
     await this.db.runAsync('DELETE FROM article_meta WHERE article_id = ?', [articleId]);
   }
 
+  /**
+   * Fast update of only the unknown_chars field for an article.
+   * Assumes the article_meta row already exists.
+   */
+  async updateArticleMetaUnknownChars(articleId: string, unknownChars: number): Promise<void> {
+    if (!this.db) return;
+    await this.db.runAsync(
+      'UPDATE article_meta SET unknown_chars = ?, updated_at = ? WHERE article_id = ?',
+      [unknownChars, Date.now(), articleId]
+    );
+  }
 
   async toggleWordKnown(word: string): Promise<boolean> {
     if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
-    return await this.vocabularyDBUtils.toggleWordKnown(word);
-
+    const result = await this.vocabularyDBUtils.toggleWordKnown(word);
+    vocabularyStore.getState().markArticleMetaStale();
+    return result;
   }
 
   /**

@@ -143,14 +143,14 @@ export class StorageService {
       const articleToDelete = articles.find(article => article.id === id);
       const filtered = articles.filter(article => article.id !== id);
       await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(filtered));
-      
+
       // Remove tags from index if article had tags
       if (articleToDelete?.tags && articleToDelete.tags.length > 0) {
         ArticleTagsService.removeTagsFromIndex(articleToDelete.tags, filtered).catch(err =>
           console.warn('[storage] Failed to remove tags from index:', err)
         );
       }
-      
+
       // Also delete reading progress and article meta for this article
       await this.deleteReadingProgress(id);
       CharacterRecognitionService.deleteArticleMeta(id)
@@ -158,6 +158,66 @@ export class StorageService {
     } catch (error) {
       console.error('Error deleting article:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Recompute article metadata for every article.
+   * For articles that already have a meta row, only the unknown_chars field is updated
+   * (fast background refresh). For articles missing meta entirely, full metadata is
+   * computed and saved (including unique count, HSK breakdown, etc.).
+   */
+  static async refreshAllArticleMeta(): Promise<void> {
+    try {
+      const articles = await this.getAllArticles();
+      if (articles.length === 0) return;
+
+      const articleChars = new Map<string, string[]>();
+      const allCharsSet = new Set<string>();
+
+      for (const article of articles) {
+        const chars = article.content.match(/[\u4e00-\u9fa5]/g) || [];
+        const distinctChars = [...new Set(chars)];
+        articleChars.set(article.id, distinctChars);
+        for (const c of distinctChars) {
+          allCharsSet.add(c);
+        }
+      }
+
+      await CharacterRecognitionService.initialize();
+
+      if (allCharsSet.size > 0) {
+        const allChars = [...allCharsSet];
+        const knownMap = await CharacterRecognitionService.getKnownStatusBatch(allChars);
+
+        for (const article of articles) {
+          const distinctChars = articleChars.get(article.id) || [];
+          let unknownChars = 0;
+          for (const c of distinctChars) {
+            if (!knownMap.get(c)) unknownChars++;
+          }
+
+          const existingMeta = await CharacterRecognitionService.getArticleMeta(article.id);
+          if (existingMeta) {
+            await CharacterRecognitionService.updateArticleMetaUnknownChars(article.id, unknownChars);
+          } else {
+            const words = article.segments
+              ?.filter(s => s.type === 'chinese')
+              .map(s => s.text) || [];
+            await CharacterRecognitionService.saveArticleMeta(article.id, article.content, words);
+          }
+        }
+      } else {
+        // No Chinese characters in any article - just ensure missing meta rows are created with zeros
+        for (const article of articles) {
+          const existingMeta = await CharacterRecognitionService.getArticleMeta(article.id);
+          if (!existingMeta) {
+            await CharacterRecognitionService.saveArticleMeta(article.id, article.content, []);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[StorageService] Error refreshing article meta:', error);
     }
   }
 

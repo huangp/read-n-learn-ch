@@ -205,13 +205,14 @@ export default function WordLookupModal({
     );
   }
 
+  const pinyin = lookup?.pinyin || (apiResult && apiResult.pinyin)
   // ---- Sub-renderers ----
 
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={styles.wordText}>{lookup?.word ?? text}</Text>
-      {lookup?.pinyin ? (
-        <Text style={styles.pinyin}>{lookup.pinyin}</Text>
+      {pinyin ? (
+        <Text style={styles.pinyin}>{pinyin}</Text>
       ) : null}
       {lookup?.hskLevel ? (
         <View style={styles.hskBadge}>
