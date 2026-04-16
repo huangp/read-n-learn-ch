@@ -4,7 +4,6 @@ export interface SegmentedWord {
   start: number;
   end: number;
   type: 'chinese' | 'other';
-  isInDictionary: boolean;
 }
 
 export interface Article {

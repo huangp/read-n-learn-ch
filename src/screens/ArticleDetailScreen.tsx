@@ -255,8 +255,7 @@ export default function ArticleDetailScreen() {
     DebugService.log('WORD_LOOKUP', 'Word pressed', { 
       word: word.text, 
       start: word.start, 
-      end: word.end,
-      isInDictionary: word.isInDictionary 
+      end: word.end
     });
     
     // Track word lookup for character recognition

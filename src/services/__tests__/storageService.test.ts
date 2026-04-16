@@ -146,8 +146,8 @@ describe('StorageService', () => {
         updatedAt: Date.now(),
         wordCount: 10,
         segments: [
-          { id: '1', text: 'Line', type: 'other', start: 0, end: 4, isInDictionary: false },
-          { id: '2', text: ' ', type: 'other', start: 4, end: 5, isInDictionary: false },
+          { id: '1', text: 'Line', type: 'other', start: 0, end: 4 },
+          { id: '2', text: ' ', type: 'other', start: 4, end: 5 },
         ],
       };
       (AsyncStorage.getItem as jest.Mock)
@@ -155,13 +155,13 @@ describe('StorageService', () => {
         .mockResolvedValueOnce(JSON.stringify([mockArticle]));
       
       const newSegments = [
-        { id: '1', text: 'Line', type: 'other', start: 0, end: 4, isInDictionary: false },
-        { id: '2', text: ' ', type: 'other', start: 4, end: 5, isInDictionary: false },
-        { id: '3', text: '1', type: 'other', start: 5, end: 6, isInDictionary: false },
-        { id: '4', text: '\n', type: 'other', start: 6, end: 7, isInDictionary: false },
-        { id: '5', text: 'Line', type: 'other', start: 7, end: 11, isInDictionary: false },
-        { id: '6', text: ' ', type: 'other', start: 11, end: 12, isInDictionary: false },
-        { id: '7', text: '2', type: 'other', start: 12, end: 13, isInDictionary: false },
+        { id: '1', text: 'Line', type: 'other', start: 0, end: 4 },
+        { id: '2', text: ' ', type: 'other', start: 4, end: 5 },
+        { id: '3', text: '1', type: 'other', start: 5, end: 6 },
+        { id: '4', text: '\n', type: 'other', start: 6, end: 7 },
+        { id: '5', text: 'Line', type: 'other', start: 7, end: 11 },
+        { id: '6', text: ' ', type: 'other', start: 11, end: 12 },
+        { id: '7', text: '2', type: 'other', start: 12, end: 13 },
       ];
       (segmentArticle as jest.Mock).mockResolvedValue(newSegments);
 
@@ -184,8 +184,8 @@ describe('StorageService', () => {
       (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
       
       const mockSegments = [
-        { id: '1', text: 'Line', type: 'other' as const, start: 0, end: 4, isInDictionary: false },
-        { id: '2', text: ' ', type: 'other' as const, start: 4, end: 5, isInDictionary: false },
+        { id: '1', text: 'Line', type: 'other' as const, start: 0, end: 4 },
+        { id: '2', text: ' ', type: 'other' as const, start: 4, end: 5 },
       ];
       (segmentArticle as jest.Mock).mockResolvedValue(mockSegments);
 

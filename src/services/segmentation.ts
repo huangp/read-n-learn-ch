@@ -76,7 +76,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
           start: offset,
           end: offset + part.length,
           type: 'other',
-          isInDictionary: false,
         });
       } else {
         // Single line break
@@ -86,7 +85,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
           start: offset,
           end: offset + part.length,
           type: 'other',
-          isInDictionary: false,
         });
       }
       offset += part.length;
@@ -116,7 +114,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
             start: offset + idx,
             end: offset + idx + word.length,
             type: 'other',
-            isInDictionary: false,
           });
         }
         continue;
@@ -135,7 +132,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
             start: offset + searchFrom,
             end: offset + idx,
             type: 'other',
-            isInDictionary: false,
           });
         }
       }
@@ -148,7 +144,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
         start: offset + idx,
         end: offset + idx + word.length,
         type,
-        isInDictionary: false,
       });
 
       searchFrom = idx + word.length;
