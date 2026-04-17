@@ -21,6 +21,9 @@ export function AvailableArticlesModal({
   onSubscribe,
 }: AvailableArticlesModalProps) {
 
+  const articlesToDisplay = articles.length < 5 ? articles : articles.slice(0, 5);
+  const eclipses = articles.length > articlesToDisplay.length ?
+      (<Text style={styles.articleTitle}>... and {articles.length - articlesToDisplay.length} more</Text>) : null;
   return (
     <Modal
       visible={visible}
@@ -54,11 +57,12 @@ export function AvailableArticlesModal({
             </Text>
 
             <View style={styles.articleList}>
-              {articles.map((article, index) => (
+              {articlesToDisplay.map((article, index) => (
                 <Text key={article.key || index} style={styles.articleTitle}>
-                  {`\u2022  ${article.title || 'Untitled'}`}
+                  {`- ${article.title || 'Untitled'}`}
                 </Text>
               ))}
+              {eclipses}
             </View>
           </ScrollView>
 
@@ -132,10 +136,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   articleTitle: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 12,
+    lineHeight: 14,
     color: '#343a40',
-    fontWeight: '500',
   },
   footer: {
     padding: 20,

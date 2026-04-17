@@ -71,7 +71,7 @@ describe('StorageService - Error Cases', () => {
       const { segmentArticle } = require('../segmentation');
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([]));
       (AsyncStorage.setItem as jest.Mock).mockRejectedValue(new Error('Write error'));
-      segmentArticle.mockResolvedValue([{ id: '1', text: 'Test', start: 0, end: 4, type: 'other', isInDictionary: false }]);
+      segmentArticle.mockResolvedValue([{ id: '1', text: 'Test', type: 'other' }]);
 
       await expect(
         StorageService.saveArticle({ title: 'Test', content: 'Content' })
@@ -161,8 +161,7 @@ describe('StorageService - Error Cases', () => {
         await expect(
           StorageService.saveReadingProgress({
             articleId: '1',
-            currentPage: 1,
-            totalPages: 10,
+            scrollPercentage: 45,
             lastReadAt: Date.now(),
           })
         ).rejects.toThrow('Write error');

@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Alert, Dimensions, FlatList, ScrollView, StyleSheet, useWindowDimensions, View,} from 'react-native';
+import {Alert, Dimensions, ScrollView, StyleSheet, useWindowDimensions, View,} from 'react-native';
 import {ActivityIndicator, Appbar, Card, FAB, Menu, Text,} from 'react-native-paper';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -7,16 +7,13 @@ import {Article, ReadingProgress, RootStackParamList, SegmentedWord} from '../ty
 import {StorageService} from '../services/storage';
 import DebugService from '../services/debug';
 import CharacterRecognitionService from '../services/characterRecognition';
-import {paginateContent} from '../utils/pagination';
-import {getSegmentsForPage} from '../services/segmentation';
-import PaginationControls from '../components/PaginationControls';
 import SegmentedText from '../components/SegmentedText';
 import WordLookupModal from '../components/WordLookupModal';
 import CompleteReadingButton from '../components/CompleteReadingButton';
 import ReadingStatsPanel from '../components/ReadingStatsPanel';
 import {getDefaultFontSize, getLineHeightForFontSize} from './SettingsScreen';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get('window');
 
 type ArticleDetailScreenRouteProp = RouteProp<RootStackParamList, 'ArticleDetail'>;
 type ArticleDetailScreenNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -24,18 +21,16 @@ type ArticleDetailScreenNavigationProp = StackNavigationProp<RootStackParamList>
 export default function ArticleDetailScreen() {
   const route = useRoute<ArticleDetailScreenRouteProp>();
   const navigation = useNavigation<ArticleDetailScreenNavigationProp>();
-  const { width } = useWindowDimensions();
 
   const { articleId } = route.params;
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Pagination state
-  const [pages, setPages] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [needsPagination, setNeedsPagination] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
+  // Scroll tracking state
+  const [scrollPercentage, setScrollPercentage] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const contentHeightRef = useRef(0);
+  const scrollViewHeightRef = useRef(screenHeight);
   
   // Word lookup state
   const [selectedWord, setSelectedWord] = useState<SegmentedWord | null>(null);
@@ -91,25 +86,6 @@ export default function ArticleDetailScreen() {
         
         setArticle(data);
         
-        // Calculate pagination
-        const paginationResult = paginateContent(
-          data.content,
-          screenWidth - 40, // Account for padding
-          screenHeight,
-          fontSize,
-          lineHeight
-        );
-        
-        DebugService.log('ARTICLE_VIEW', 'Pagination calculated', {
-          needsPagination: paginationResult.needsPagination,
-          totalPages: paginationResult.totalPages,
-          pagesLength: paginationResult.pages.length
-        });
-        
-        setPages(paginationResult.pages);
-        setTotalPages(paginationResult.totalPages);
-        setNeedsPagination(paginationResult.needsPagination);
-        
         // Initialize character recognition session
         const sessionId = await CharacterRecognitionService.startReadingSession(articleId);
         setCurrentSessionId(sessionId);
@@ -133,15 +109,15 @@ export default function ArticleDetailScreen() {
         // Load saved reading progress
         const savedProgress = await StorageService.getReadingProgress(articleId);
         if (savedProgress) {
-          const targetPage = Math.min(savedProgress.currentPage, paginationResult.totalPages - 1);
-          setCurrentPage(targetPage);
-          // Scroll to saved page after a short delay
+          const percentage = Math.min(savedProgress.scrollPercentage, 100);
+          setScrollPercentage(percentage);
+          // Scroll to saved position after layout
           setTimeout(() => {
-            flatListRef.current?.scrollToIndex({
-              index: targetPage,
-              animated: false,
-            });
-          }, 100);
+            if (contentHeightRef.current > 0) {
+              const scrollY = (percentage / 100) * Math.max(0, contentHeightRef.current - scrollViewHeightRef.current);
+              scrollViewRef.current?.scrollTo({ y: scrollY, animated: false });
+            }
+          }, 200);
         }
       } else {
         DebugService.log('ARTICLE_VIEW', 'Article not found', { articleId });
@@ -153,14 +129,13 @@ export default function ArticleDetailScreen() {
     }
   };
 
-  // Save reading progress when page changes
-  const saveProgress = useCallback(async (page: number) => {
+  // Save reading progress when scroll changes
+  const saveProgress = useCallback(async (percentage: number) => {
     if (!article) return;
     
     const progress: ReadingProgress = {
       articleId,
-      currentPage: page,
-      totalPages,
+      scrollPercentage: Math.min(Math.round(percentage), 100),
       lastReadAt: Date.now(),
     };
     
@@ -169,7 +144,37 @@ export default function ArticleDetailScreen() {
     } catch (error) {
       console.error('Error saving reading progress:', error);
     }
-  }, [article, articleId, totalPages]);
+  }, [article, articleId]);
+
+  // Debounced scroll handler
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleScroll = useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    
+    contentHeightRef.current = contentSize.height;
+    scrollViewHeightRef.current = layoutMeasurement.height;
+    
+    const scrollableHeight = Math.max(0, contentSize.height - layoutMeasurement.height);
+    let percentage = 0;
+    
+    if (scrollableHeight > 0) {
+      percentage = Math.min(100, Math.round((contentOffset.y / scrollableHeight) * 100));
+    } else if (contentSize.height > 0) {
+      // Content fits in viewport, consider it 100% viewed
+      percentage = 100;
+    }
+    
+    setScrollPercentage(percentage);
+    
+    // Debounce saving progress
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      saveProgress(percentage);
+    }, 500);
+  }, [saveProgress]);
 
   const handleEdit = () => {
     navigation.navigate('ArticleEditor', { articleId });
@@ -218,44 +223,9 @@ export default function ArticleDetailScreen() {
     }
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 0) {
-      const newPage = currentPage - 1;
-      setCurrentPage(newPage);
-      flatListRef.current?.scrollToIndex({
-        index: newPage,
-        animated: true,
-      });
-      saveProgress(newPage);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages - 1) {
-      const newPage = currentPage + 1;
-      setCurrentPage(newPage);
-      flatListRef.current?.scrollToIndex({
-        index: newPage,
-        animated: true,
-      });
-      saveProgress(newPage);
-    }
-  };
-
-  const handleScroll = useCallback((event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const page = Math.round(offsetX / width);
-    if (page !== currentPage && page >= 0 && page < totalPages) {
-      setCurrentPage(page);
-      saveProgress(page);
-    }
-  }, [currentPage, totalPages, width, saveProgress]);
-
   const handleWordPress = async (word: SegmentedWord) => {
     DebugService.log('WORD_LOOKUP', 'Word pressed', { 
-      word: word.text, 
-      start: word.start, 
-      end: word.end
+      word: word.text,
     });
     
     // Track word lookup for character recognition
@@ -278,63 +248,8 @@ export default function ArticleDetailScreen() {
     handleDelete();
   }, [handleDelete]);
 
-  const isLastPage = currentPage === totalPages - 1;
-  const showCompleteButton = isLastPage && !hasCompleted;
-
-  const renderPage = ({ item, index }: { item: string; index: number }) => {
-    // Calculate page boundaries
-    let pageStart = 0;
-    for (let i = 0; i < index; i++) {
-      pageStart += pages[i].length;
-    }
-    const pageEnd = pageStart + item.length;
-    
-    DebugService.log('ARTICLE_VIEW', `Rendering page ${index}`, { pageStart, pageEnd });
-    
-    // Get segments for this page
-    const pageSegments = article?.segments
-      ? getSegmentsForPage(article.segments, pageStart, pageEnd)
-      : [];
-
-    DebugService.log('ARTICLE_VIEW', `Page ${index} segments`, { 
-      count: pageSegments.length,
-      hasSegments: pageSegments.length > 0 
-    });
-
-    const isLastPageItem = index === pages.length - 1;
-
-    return (
-      <View style={[styles.pageContainer, { width }]}>
-        <ScrollView style={styles.pageScrollView} contentContainerStyle={styles.pageScrollContent}>
-          <View style={styles.pageContent}>
-            {pageSegments.length > 0 ? (
-              <SegmentedText
-                segments={pageSegments}
-                content={item}
-                onWordPress={handleWordPress}
-                fontSize={fontSize}
-                lineHeight={lineHeight}
-              />
-            ) : (
-              <Text style={styles.contentText}>{item}</Text>
-            )}
-          </View>
-
-          {isLastPageItem && (
-            <View style={styles.bottomSection}>
-              <ReadingStatsPanel articleId={articleId} sessionId={currentSessionId} />
-              {showCompleteButton && (
-                <CompleteReadingButton
-                  onComplete={handleCompleteReading}
-                  disabled={false}
-                />
-              )}
-            </View>
-          )}
-        </ScrollView>
-      </View>
-    );
-  };
+  // Show complete button when scrolled near bottom (90%+) or content is short
+  const showCompleteButton = (scrollPercentage >= 90 || contentHeightRef.current <= scrollViewHeightRef.current) && !hasCompleted;
 
   if (loading) {
     return (
@@ -359,7 +274,7 @@ export default function ArticleDetailScreen() {
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content 
           title={article.title || 'Article'} 
-          subtitle={needsPagination ? `Page ${currentPage + 1} of ${totalPages}` : undefined}
+          subtitle={`${scrollPercentage}% read`}
         />
         <Menu
           visible={menuVisible}
@@ -412,59 +327,32 @@ export default function ArticleDetailScreen() {
       </Card>
 
       {/* Content */}
-      <View style={styles.contentWrapper}>
-        {needsPagination ? (
-          <FlatList
-            ref={flatListRef}
-            data={pages}
-            renderItem={renderPage}
-            keyExtractor={(_, index) => `page-${index}`}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            getItemLayout={(_, index) => ({
-              length: width,
-              offset: width * index,
-              index,
-            })}
-          />
-        ) : (
-          <ScrollView style={styles.singlePageContainer} contentContainerStyle={styles.singlePageContent}>
-            <Card style={styles.pageContent}>
-              <Card.Content>
-                {article?.segments && article.segments.length > 0 ? (
-                  <SegmentedText
-                    segments={article.segments}
-                    content={article.content}
-                    onWordPress={handleWordPress}
-                    fontSize={fontSize}
-                    lineHeight={lineHeight}
-                  />
-                ) : (
-                  <Text variant="bodyLarge" style={styles.contentText}>{article.content}</Text>
-                )}
-              </Card.Content>
-            </Card>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.contentContainer}
+        contentContainerStyle={styles.contentContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        <View style={styles.contentWrapper}>
+          {article?.segments && article.segments.length > 0 ? (
+            <SegmentedText
+              segments={article.segments}
+              content={article.content}
+              onWordPress={handleWordPress}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
+            />
+          ) : (
+            <Text variant="bodyLarge" style={styles.contentText}>{article.content}</Text>
+          )}
+        </View>
 
-            {/* Stats & Complete Reading - inline below content */}
-            <View style={styles.bottomSection}>
-              <ReadingStatsPanel articleId={articleId} sessionId={currentSessionId} />
-            </View>
-          </ScrollView>
-        )}
-      </View>
-
-      {/* Pagination Controls */}
-      {needsPagination && (
-        <PaginationControls
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPrevious={handlePreviousPage}
-          onNext={handleNextPage}
-        />
-      )}
+        {/* Stats & Complete Reading - inline below content */}
+        <View style={styles.bottomSection}>
+          <ReadingStatsPanel articleId={articleId} sessionId={currentSessionId} />
+        </View>
+      </ScrollView>
 
       {/* Complete Reading FAB */}
       {showCompleteButton && (
@@ -519,27 +407,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontStyle: 'italic',
   },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  contentContent: {
+    paddingBottom: 100, // Extra space for FAB
+  },
   contentWrapper: {
-    flex: 1,
-  },
-  singlePageContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  singlePageContent: {
-    paddingBottom: 100, // Extra space for FAB
-  },
-  pageContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  pageScrollView: {
-    flex: 1,
-  },
-  pageScrollContent: {
-    paddingBottom: 100, // Extra space for FAB
-  },
-  pageContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
   },
   contentText: {

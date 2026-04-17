@@ -40,7 +40,7 @@ function hasChinese(str: string): boolean {
  * with segmentit, then stitch together with explicit newline segments.
  *
  * @param content - The Chinese text content to segment
- * @returns Array of segmented words with positions
+ * @returns Array of segmented words
  */
 export async function segmentArticle(content: string): Promise<SegmentedWord[]> {
   DebugService.log('SEGMENTATION', 'Starting segmentation', { contentLength: content?.length });
@@ -58,8 +58,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
   // e.g. "Hello\n\nWorld\n" → ["Hello", "\n\n", "World", "\n"]
   const parts = content.split(/(\r?\n+)/);
 
-  let offset = 0; // tracks position in original content
-
   for (const part of parts) {
     if (part.length === 0) {
       continue;
@@ -73,8 +71,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
         segments.push({
           id: `seg-${segId++}`,
           text: '\n\n',
-          start: offset,
-          end: offset + part.length,
           type: 'other',
         });
       } else {
@@ -82,12 +78,9 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
         segments.push({
           id: `seg-${segId++}`,
           text: '\n',
-          start: offset,
-          end: offset + part.length,
           type: 'other',
         });
       }
-      offset += part.length;
       continue;
     }
 
@@ -111,8 +104,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
           segments.push({
             id: `seg-${segId++}`,
             text: word,
-            start: offset + idx,
-            end: offset + idx + word.length,
             type: 'other',
           });
         }
@@ -129,8 +120,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
           segments.push({
             id: `seg-${segId++}`,
             text: gap,
-            start: offset + searchFrom,
-            end: offset + idx,
             type: 'other',
           });
         }
@@ -141,15 +130,11 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
       segments.push({
         id: `seg-${segId++}`,
         text: word,
-        start: offset + idx,
-        end: offset + idx + word.length,
         type,
       });
 
       searchFrom = idx + word.length;
     }
-
-    offset += part.length;
   }
 
   DebugService.log('SEGMENTATION', `Created ${segments.length} segments`, {
@@ -158,31 +143,6 @@ export async function segmentArticle(content: string): Promise<SegmentedWord[]> 
   });
 
   return segments;
-}
-
-/**
- * Get segments for a specific page of content
- */
-export function getSegmentsForPage(
-  segments: SegmentedWord[],
-  pageStart: number,
-  pageEnd: number
-): SegmentedWord[] {
-  DebugService.log('SEGMENTATION', `Filtering segments for page range ${pageStart}-${pageEnd}`, {
-    totalSegments: segments?.length,
-    pageStart,
-    pageEnd
-  });
-  
-  const filtered = segments.filter(
-    (seg) => seg.start >= pageStart && seg.end <= pageEnd
-  );
-  
-  DebugService.log('SEGMENTATION', `Filtered to ${filtered.length} segments for page`, {
-    filtered: filtered.map(s => ({ text: s.text, start: s.start, end: s.end }))
-  });
-  
-  return filtered;
 }
 
 /**

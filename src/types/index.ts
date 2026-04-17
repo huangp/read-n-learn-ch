@@ -1,8 +1,6 @@
 export interface SegmentedWord {
   id: string;
   text: string;
-  start: number;
-  end: number;
   type: 'chinese' | 'other';
 }
 
@@ -42,10 +40,7 @@ export interface MultipleFileProcessingResult {
 
 export interface ReadingProgress {
   articleId: string;
-  charPosition?: number; // Character index in content, rounded to nearest word boundary
-  totalChars?: number;
-  currentPage: number;
-  totalPages: number;
+  scrollPercentage: number; // 0-100, how far user has scrolled
   lastReadAt: number;
 }
 

@@ -146,8 +146,8 @@ describe('StorageService', () => {
         updatedAt: Date.now(),
         wordCount: 10,
         segments: [
-          { id: '1', text: 'Line', type: 'other', start: 0, end: 4 },
-          { id: '2', text: ' ', type: 'other', start: 4, end: 5 },
+          { id: '1', text: 'Line', type: 'other' },
+          { id: '2', text: ' ', type: 'other' },
         ],
       };
       (AsyncStorage.getItem as jest.Mock)
@@ -155,13 +155,13 @@ describe('StorageService', () => {
         .mockResolvedValueOnce(JSON.stringify([mockArticle]));
       
       const newSegments = [
-        { id: '1', text: 'Line', type: 'other', start: 0, end: 4 },
-        { id: '2', text: ' ', type: 'other', start: 4, end: 5 },
-        { id: '3', text: '1', type: 'other', start: 5, end: 6 },
-        { id: '4', text: '\n', type: 'other', start: 6, end: 7 },
-        { id: '5', text: 'Line', type: 'other', start: 7, end: 11 },
-        { id: '6', text: ' ', type: 'other', start: 11, end: 12 },
-        { id: '7', text: '2', type: 'other', start: 12, end: 13 },
+        { id: '1', text: 'Line', type: 'other' },
+        { id: '2', text: ' ', type: 'other' },
+        { id: '3', text: '1', type: 'other' },
+        { id: '4', text: '\n', type: 'other' },
+        { id: '5', text: 'Line', type: 'other' },
+        { id: '6', text: ' ', type: 'other' },
+        { id: '7', text: '2', type: 'other' },
       ];
       (segmentArticle as jest.Mock).mockResolvedValue(newSegments);
 
@@ -184,8 +184,8 @@ describe('StorageService', () => {
       (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
       
       const mockSegments = [
-        { id: '1', text: 'Line', type: 'other' as const, start: 0, end: 4 },
-        { id: '2', text: ' ', type: 'other' as const, start: 4, end: 5 },
+        { id: '1', text: 'Line', type: 'other' as const },
+        { id: '2', text: ' ', type: 'other' as const },
       ];
       (segmentArticle as jest.Mock).mockResolvedValue(mockSegments);
 
@@ -210,7 +210,7 @@ describe('StorageService', () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([existingArticle]));
       (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
       
-      const mockSegments = [{ text: 'Updated', type: 'other', start: 0, end: 7 }];
+      const mockSegments = [{ text: 'Updated', type: 'other' }];
       (segmentArticle as jest.Mock).mockResolvedValue(mockSegments);
 
       const result = await StorageService.saveArticle(mockFormData, 'existing-id');
@@ -426,8 +426,7 @@ describe('StorageService', () => {
 
         const progress = {
           articleId: '1',
-          currentPage: 1,
-          totalPages: 10,
+          scrollPercentage: 45,
           lastReadAt: Date.now(),
         };
 
