@@ -17,6 +17,7 @@ import {
   Button,
   Portal,
   Dialog,
+  TextInput,
 } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
@@ -69,6 +70,10 @@ export default function SettingsScreen() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const [exportKeyDialogVisible, setExportKeyDialogVisible] = useState(false);
+  const [exportKey, setExportKey] = useState('');
+  const [importKeyDialogVisible, setImportKeyDialogVisible] = useState(false);
+  const [importKey, setImportKey] = useState('');
 
   useEffect(() => {
     loadDebugMode();
@@ -151,8 +156,16 @@ export default function SettingsScreen() {
       return;
     }
 
+    setExportKey('');
+    setExportKeyDialogVisible(true);
+  };
+
+  const performExport = async () => {
+    setExportKeyDialogVisible(false);
+
     try {
-      await exportBackupToCloud();
+      const key = exportKey.trim() || undefined;
+      await exportBackupToCloud(key);
       Alert.alert('Success', 'Your data has been exported to the cloud.');
     } catch (error) {
       console.error('[Settings] Cloud export failed:', error);
@@ -173,6 +186,13 @@ export default function SettingsScreen() {
       return;
     }
 
+    setImportKey('');
+    setImportKeyDialogVisible(true);
+  };
+
+  const performImport = async () => {
+    setImportKeyDialogVisible(false);
+
     Alert.alert(
       'Restore from Cloud',
       'This will replace ALL your local data with the cloud backup. This action cannot be undone. Are you sure?',
@@ -186,7 +206,8 @@ export default function SettingsScreen() {
             setImportProgress(null);
 
             try {
-              await importBackupFromCloud((progress) => {
+              const key = importKey.trim() || undefined;
+              await importBackupFromCloud(key, (progress) => {
                 setImportProgress(progress);
               });
             } catch (error) {
@@ -449,6 +470,60 @@ export default function SettingsScreen() {
           }
         }}
       />
+
+      {/* Export Key Dialog */}
+      <Portal>
+        <Dialog visible={exportKeyDialogVisible} onDismiss={() => setExportKeyDialogVisible(false)}>
+          <Dialog.Title>Export to Cloud</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
+              Enter a custom key (must be unique, such as your email) to identify this backup. Use the same key on another device to restore your data.
+            </Text>
+            <Text variant="bodySmall" style={{ marginBottom: 16, color: '#666' }}>
+              Leave empty to use your account ID (can only restore on the same account).
+            </Text>
+            <TextInput
+              label="Backup Key (optional)"
+              value={exportKey}
+              onChangeText={setExportKey}
+              placeholder="Enter a custom key"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setExportKeyDialogVisible(false)}>Cancel</Button>
+            <Button onPress={performExport} mode="contained">Export</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Import Key Dialog */}
+      <Portal>
+        <Dialog visible={importKeyDialogVisible} onDismiss={() => setImportKeyDialogVisible(false)}>
+          <Dialog.Title>Restore from Cloud</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
+              Enter the key used when exporting the backup.
+            </Text>
+            <Text variant="bodySmall" style={{ marginBottom: 16, color: '#666' }}>
+              Leave empty to restore from your account ID (same account only).
+            </Text>
+            <TextInput
+              label="Backup Key (optional)"
+              value={importKey}
+              onChangeText={setImportKey}
+              placeholder="Enter the backup key"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setImportKeyDialogVisible(false)}>Cancel</Button>
+            <Button onPress={performImport} mode="contained">Next</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }

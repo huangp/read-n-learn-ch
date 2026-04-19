@@ -190,17 +190,23 @@ export async function exportBackup(): Promise<BackupData> {
 
 /**
  * Export backup data to cloud storage.
- * Uses RevenueCat App User ID as the user identifier.
+ * Uses RevenueCat App User ID as the user identifier if no custom key is provided.
  * Requires active subscription (hasCloudAccess).
+ * @param exportKey Optional custom key to identify this backup. If not provided, uses RevenueCat App User ID.
  */
-export async function exportBackupToCloud(): Promise<void> {
+export async function exportBackupToCloud(exportKey?: string): Promise<void> {
   const appUserId = await SubscriptionManager.getAppUserID();
   if (!appUserId) {
     throw new Error('[Backup] RevenueCat App User ID not available');
   }
 
+  const key = exportKey?.trim() || appUserId;
+  if (!key) {
+    throw new Error('[Backup] Export key is required');
+  }
+
   const backup = await exportBackup();
-  await ApiClient.exportBackup(appUserId, backup as unknown as Record<string, unknown>);
+  await ApiClient.exportBackup(key, backup as unknown as Record<string, unknown>);
 }
 
 /**
@@ -211,11 +217,17 @@ export async function exportBackupToCloud(): Promise<void> {
  * Reloads the app after successful import.
  */
 export async function importBackupFromCloud(
+  importKey?: string,
   onProgress?: (progress: ImportProgress) => void
 ): Promise<void> {
   const appUserId = await SubscriptionManager.getAppUserID();
   if (!appUserId) {
     throw new Error('[Backup] RevenueCat App User ID not available');
+  }
+
+  const key = importKey?.trim() || appUserId;
+  if (!key) {
+    throw new Error('[Backup] Import key is required');
   }
 
   onProgress?.({
@@ -225,7 +237,7 @@ export async function importBackupFromCloud(
     message: 'Downloading backup from cloud...',
   });
 
-  const response = await ApiClient.importBackup(appUserId);
+  const response = await ApiClient.importBackup(key);
   if (!response.backupData) {
     throw new Error('[Backup] No backup data found in cloud');
   }
