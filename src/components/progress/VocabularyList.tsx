@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Text, Surface, Chip } from 'react-native-paper';
+import { Text, Surface, Card } from 'react-native-paper';
 import type { VocabularyItem } from '../../services/progressService';
 import WordLookupModal from '../WordLookupModal';
 
@@ -34,29 +34,32 @@ export default function VocabularyList({ words }: VocabularyListProps) {
 
   return (
     <>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={true}
         contentContainerStyle={styles.scrollContent}
       >
-        {words.map((item, index) => (
-          <TouchableOpacity
-            key={`${item.word}-${index}`}
-            onPress={() => handleWordPress(item.word)}
-            activeOpacity={0.7}
-          >
-            <Surface style={styles.wordCard} elevation={2}>
-              <View style={styles.wordHeader}>
-                <Text variant="headlineMedium" style={styles.wordText}>
-                  {item.word}
-                </Text>
-                <Chip compact style={styles.lookupChip}>
-                  Looked up {item.lookupCount} {item.lookupCount === 1 ? 'time' : 'times'}
-                </Chip>
-              </View>
-            </Surface>
-          </TouchableOpacity>
-        ))}
+        <View style={styles.grid}>
+          {words.map((item, index) => (
+            <TouchableOpacity
+              key={`${item.word}-${index}`}
+              onPress={() => handleWordPress(item.word)}
+              activeOpacity={0.7}
+              style={styles.gridItem}
+            >
+              <Card style={styles.card} elevation={1}>
+                <Card.Content style={styles.cardContent}>
+                  <Text variant="titleLarge" style={styles.wordText}>
+                    {item.word}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.countText}>
+                    {item.lookupCount}x
+                  </Text>
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
       <WordLookupModal
@@ -73,26 +76,40 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   scrollContent: {
-    gap: 12,
     paddingBottom: 8,
   },
-  wordCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-  },
-  wordHeader: {
+  grid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gridItem: {
+    width: '30%',
+    flexGrow: 1,
+    maxWidth: '33%',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    height: 72,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  cardContent: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   wordText: {
     fontWeight: '700',
     color: '#333',
-    flex: 1,
+    textAlign: 'center',
+    fontSize: 20,
   },
-  lookupChip: {
-    backgroundColor: '#FFF3E0',
+  countText: {
+    color: '#888',
+    marginTop: 2,
+    fontSize: 11,
   },
   emptyContainer: {
     padding: 24,
