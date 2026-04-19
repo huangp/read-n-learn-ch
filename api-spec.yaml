@@ -85,6 +85,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create Object
+      description: Create a new object in S3. The object key is auto-generated from a djb2 hash of the body content.
+      operationId: createObject
+      tags:
+        - Storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateObjectRequest'
+      responses:
+        '201':
+          description: Object created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateObjectResponse'
+        '400':
+          description: Bad request - invalid JSON content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /objects/{key}:
     get:
@@ -119,7 +150,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    
+
     put:
       summary: Update Object
       description: Update an existing object in S3. Only text/plain content is supported. The key must already exist in the bucket.
@@ -148,6 +179,78 @@ paths:
                 $ref: '#/components/schemas/PutObjectResponse'
         '404':
           description: Object key does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /import-export:
+    put:
+      summary: Export Backup
+      description: Export user backup data to S3. The app user ID is hashed (SHA-256) before being used as the S3 key for privacy.
+      operationId: exportBackup
+      tags:
+        - Backup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportBackupRequest'
+      responses:
+        '200':
+          description: Backup exported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportBackupResponse'
+        '400':
+          description: Bad request - invalid JSON or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Import Backup
+      description: Retrieve user backup data from S3 by app user ID. The app user ID is hashed (SHA-256) to look up the backup.
+      operationId: importBackup
+      tags:
+        - Backup
+      parameters:
+        - name: appUserId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: User's app user ID (hashed to look up backup)
+          example: user@icloud.com
+      responses:
+        '200':
+          description: Backup imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBackupResponse'
+        '400':
+          description: Bad request - missing appUserId query parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Backup not found
           content:
             application/json:
               schema:
@@ -347,7 +450,8 @@ components:
           description: Object key
         title:
           type: string
-          description: Article title
+          description: Article title (from DynamoDB metadata, empty string if not found)
+          example: ""
         size:
           type: integer
           description: Object size in bytes
@@ -365,6 +469,44 @@ components:
         body:
           type: string
           description: Article content
+
+    CreateObjectRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Article title
+        body:
+          type: string
+          description: Article content
+        tags:
+          type: array
+          items:
+            type: string
+          description: Article tags
+
+    CreateObjectResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Object created successfully
+        key:
+          type: string
+          description: Auto-generated object key from content hash
+        title:
+          type: string
+          description: Article title
+        size:
+          type: integer
+          description: Object size in bytes
+        lastModified:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+        contentType:
+          type: string
+          description: Content type
 
     PutObjectRequest:
       type: object
@@ -514,6 +656,40 @@ components:
           example:
             - zh
             - en
+
+    ExportBackupRequest:
+      type: object
+      required:
+        - appUserId
+        - backupData
+      properties:
+        appUserId:
+          type: string
+          description: User's app user ID (hashed before storage)
+          example: user@icloud.com
+        backupData:
+          type: object
+          description: User backup data as JSON object
+
+    ExportBackupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Backup exported successfully
+        key:
+          type: string
+          description: S3 key where backup was stored (includes SHA-256 hash prefix)
+
+    ImportBackupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Backup imported successfully
+        backupData:
+          type: object
+          description: Retrieved backup data
 
     ErrorResponse:
       type: object

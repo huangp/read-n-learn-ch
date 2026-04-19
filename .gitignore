@@ -61,4 +61,4 @@ tmp/
 
 # Dictionary files are now committed for EAS build reliability
 # To update dictionary: npm run build:dict
-# downloads/
+ downloads

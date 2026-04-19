@@ -8,7 +8,7 @@ export type ObjectInfo = {
      */
     key?: string;
     /**
-     * Article title
+     * Article title (from DynamoDB metadata, empty string if not found)
      */
     title?: string;
     /**

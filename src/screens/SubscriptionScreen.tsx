@@ -32,6 +32,12 @@ const BenefitCard = () => (
           </Text>
         </View>
         <View style={styles.benefitRow}>
+          <List.Icon icon="cloud" />
+          <Text variant="bodyMedium" style={styles.benefitText}>
+            Backup and restore articles and progress across devices
+          </Text>
+        </View>
+        <View style={styles.benefitRow}>
           <List.Icon icon="star" />
           <Text variant="bodyMedium" style={styles.benefitText}>
             Personalised AI generated articles to re-enforce learning characters (coming soon)

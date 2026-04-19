@@ -1,7 +1,8 @@
-import { OpenAPI, AuthenticationService, StorageService, VocabularyService, DocumentExtractionService } from './generated';
+import { OpenAPI, AuthenticationService, StorageService, VocabularyService, DocumentExtractionService, BackupService } from './generated';
 import { TokenStorage } from './tokenStorage';
 import { DeviceInfoService } from './deviceInfo';
 import type { KeyRequest } from './generated/models/KeyRequest';
+import type { ExportBackupRequest } from './generated/models/ExportBackupRequest';
 
 // Get API base URL from environment
 // For local development: set in .env file (defaults to localhost:3000)
@@ -34,7 +35,10 @@ export class ApiClient {
     if (this.isInitialized) return;
 
     OpenAPI.BASE = API_BASE_URL;
-    OpenAPI.TOKEN = async () => {
+    OpenAPI.TOKEN = async (options) => {
+      // /key endpoint is unauthenticated - skip auth
+      if (options?.url === '/key') return '';
+
       await this.ensureValidToken();
       const stored = await TokenStorage.getToken();
       return stored?.token ?? '';
@@ -85,25 +89,15 @@ export class ApiClient {
         appVersion: deviceInfo.appVersion,
       };
 
-      // Temporarily disable token for /key endpoint (unauthenticated)
-      // The /key endpoint is defined with security: [] in the OpenAPI spec,
-      // but the generated client doesn't respect this, so we manually disable auth
-      const originalToken = OpenAPI.TOKEN;
-      OpenAPI.TOKEN = undefined;
+      // Call /key endpoint without authentication
+      // Our TOKEN resolver returns '' for /key, so no auth header is sent
+      const response = await AuthenticationService.getApiKey(keyRequest);
 
-      try {
-        // Call /key endpoint without authentication
-        const response = await AuthenticationService.getApiKey(keyRequest);
-
-        if (!response.apiKey || !response.expiresAt) {
-          throw new Error('Invalid API key response');
-        }
-
-        await TokenStorage.saveToken(response.apiKey, response.expiresAt);
-      } finally {
-        // Restore token resolver
-        OpenAPI.TOKEN = originalToken;
+      if (!response.apiKey || !response.expiresAt) {
+        throw new Error('Invalid API key response');
       }
+
+      await TokenStorage.saveToken(response.apiKey, response.expiresAt);
     } catch (error) {
       console.error('[ApiClient] Failed to refresh token:', error);
       await TokenStorage.deleteToken();
@@ -169,6 +163,28 @@ export class ApiClient {
   static async getExtractionStatus(jobId: string) {
     this.initialize();
     return DocumentExtractionService.getExtractionStatus(jobId);
+  }
+
+
+  // ====================
+  // Backup API Methods
+  // ====================
+
+  /**
+   * Export backup data to cloud storage
+   */
+  static async exportBackup(appUserId: string, backupData: Record<string, unknown>) {
+    this.initialize();
+    const request: ExportBackupRequest = { appUserId, backupData };
+    return BackupService.exportBackup(request);
+  }
+
+  /**
+   * Import backup data from cloud storage
+   */
+  static async importBackup(appUserId: string) {
+    this.initialize();
+    return BackupService.importBackup(appUserId);
   }
 
   // ====================

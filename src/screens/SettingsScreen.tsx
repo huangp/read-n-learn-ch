@@ -22,11 +22,16 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases from 'react-native-purchases';
+import * as Updates from 'expo-updates';
 import { RootStackParamList } from '../types';
 import { useSubscriptionStore } from '../store/subscriptionStore';
+import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionManager from '../services/subscription/SubscriptionManager';
 import { FirstLaunchService } from '../services/firstLaunch';
 import { OnboardingModal } from '../components/OnboardingModal';
+import { ImportProgressModal } from '../components/ImportProgressModal';
+import { exportBackup, exportBackupToCloud, importBackupFromCloud } from '../services/backup';
+import type { ImportProgress } from '../services/backup';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -57,10 +62,13 @@ export const getLineHeightForFontSize = (fontSize: number): number => {
 
 export default function SettingsScreen() {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const { hasCloudAccess } = useSubscription();
   const [debugMode, setDebugMode] = useState(false);
   const [fontSize, setFontSize] = useState(18);
   const [aboutVisible, setAboutVisible] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
 
   useEffect(() => {
     loadDebugMode();
@@ -130,6 +138,68 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleExport = async () => {
+    if (!hasCloudAccess) {
+      Alert.alert(
+        'Subscription Required',
+        'Cloud backup is a premium feature. Subscribe to back up your data across devices.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Subscribe', onPress: () => navigation.navigate('Subscription') },
+        ]
+      );
+      return;
+    }
+
+    try {
+      await exportBackupToCloud();
+      Alert.alert('Success', 'Your data has been exported to the cloud.');
+    } catch (error) {
+      console.error('[Settings] Cloud export failed:', error);
+      Alert.alert('Export Failed', 'Could not export to cloud. Please try again.');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!hasCloudAccess) {
+      Alert.alert(
+        'Subscription Required',
+        'Cloud restore is a premium feature. Subscribe to restore your data across devices.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Subscribe', onPress: () => navigation.navigate('Subscription') },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Restore from Cloud',
+      'This will replace ALL your local data with the cloud backup. This action cannot be undone. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: async () => {
+            setImportModalVisible(true);
+            setImportProgress(null);
+
+            try {
+              await importBackupFromCloud((progress) => {
+                setImportProgress(progress);
+              });
+            } catch (error) {
+              setImportModalVisible(false);
+              console.error('[Settings] Cloud import failed:', error);
+              Alert.alert('Import Failed', error instanceof Error ? error.message : 'Could not import from cloud. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const settingsItems = [
     {
       title: 'About',
@@ -137,14 +207,14 @@ export default function SettingsScreen() {
       onPress: () => setAboutVisible(true),
     },
     {
-      title: 'Data Management',
-      description: 'Export/Import articles (coming soon)',
-      onPress: () => {},
+      title: 'Data Export (Premium)',
+      description: hasCloudAccess ? 'Export all articles and progress to cloud' : 'Sync across devices (Premium)',
+      onPress: handleExport,
     },
     {
-      title: 'Cloud Sync',
-      description: 'Sync across devices (coming soon)',
-      onPress: () => {},
+      title: 'Data Import (Premium)',
+      description: hasCloudAccess ? 'Restore all articles and progress from cloud' : 'Restore from cloud (Premium)',
+      onPress: handleImport,
     },
   ];
 
@@ -367,6 +437,17 @@ export default function SettingsScreen() {
       <OnboardingModal
         visible={showOnboarding}
         onComplete={() => setShowOnboarding(false)}
+      />
+      <ImportProgressModal
+        visible={importModalVisible}
+        progress={importProgress}
+        onDone={() => {
+          setImportModalVisible(false);
+          // Reload the app to pick up restored data
+          if (!__DEV__) {
+            Updates.reloadAsync();
+          }
+        }}
       />
     </ScrollView>
   );

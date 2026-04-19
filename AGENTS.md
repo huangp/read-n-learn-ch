@@ -66,12 +66,13 @@ npm run generate:api    # Regenerate API client from OpenAPI spec
 src/
   components/     # Reusable UI components (PascalCase.tsx)
   screens/        # Screen components (PascalCase.tsx)
-  services/       # Business logic (camelCase.ts)
+  services/       # Business logic only (camelCase.ts)
   utils/          # Helper functions (camelCase.ts)
   types/          # TypeScript interfaces (index.ts)
   store/          # Zustand stores (camelCase.ts)
   hooks/          # Custom React hooks (useHookName.ts)
   api/            # Generated API client (don't edit manually)
+  utils/database/ # All database scripts should be created here and used by business service
   __mocks__/      # Jest mocks
 ```
 

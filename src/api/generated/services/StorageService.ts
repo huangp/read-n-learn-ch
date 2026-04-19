@@ -2,6 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { CreateObjectRequest } from '../models/CreateObjectRequest';
+import type { CreateObjectResponse } from '../models/CreateObjectResponse';
 import type { ObjectListResponse } from '../models/ObjectListResponse';
 import type { ObjectResponse } from '../models/ObjectResponse';
 import type { PutObjectRequest } from '../models/PutObjectRequest';
@@ -21,6 +23,27 @@ export class StorageService {
             method: 'GET',
             url: '/objects',
             errors: {
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Create Object
+     * Create a new object in S3. The object key is auto-generated from a djb2 hash of the body content.
+     * @param requestBody
+     * @returns CreateObjectResponse Object created successfully
+     * @throws ApiError
+     */
+    public static createObject(
+        requestBody: CreateObjectRequest,
+    ): CancelablePromise<CreateObjectResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/objects',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Bad request - invalid JSON content`,
                 500: `Internal server error`,
             },
         });
