@@ -14,6 +14,9 @@ export interface Article {
   source?: string;
   wordCount?: number;
   segments?: SegmentedWord[]; // Pre-segmented words for tap-to-lookup
+  serverPinyin?: string;
+  serverTranslation?: string;
+  hasServerSegments?: boolean;
 }
 
 export interface ArticleFormData {

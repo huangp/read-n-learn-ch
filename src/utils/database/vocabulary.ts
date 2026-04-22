@@ -266,4 +266,26 @@ export class VocabularyDBUtils {
             'SELECT name, description, color FROM tags ORDER BY name'
         );
     }
+
+    /**
+     * Get the total count of known vocabulary items.
+     */
+    async getKnownVocabularyCount(): Promise<number> {
+        if (!this.db) return 0;
+        const result = await this.db.getFirstAsync<{ count: number }>(
+            'SELECT COUNT(*) as count FROM vocabulary WHERE is_known = 1'
+        );
+        return result?.count ?? 0;
+    }
+
+    /**
+     * Get all known vocabulary items.
+     */
+    async getKnownVocabulary(): Promise<string[]> {
+        if (!this.db) return [];
+        const rows = await this.db.getAllAsync<{ id: string }>(
+            'SELECT id FROM vocabulary WHERE is_known = 1 ORDER BY id'
+        );
+        return rows.map(r => r.id);
+    }
 }

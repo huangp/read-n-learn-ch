@@ -2,8 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiClient } from '../api/client';
 import { StorageService } from './storage';
 import SubscriptionManager from './subscription/SubscriptionManager';
-import { segmentArticle } from './segmentation';
-import type { Article } from '../types';
 
 const LAST_SYNC_KEY = '@last_article_sync';
 const SYNC_INTERVAL_DAYS = 7;
@@ -110,27 +108,19 @@ export class ArticleSyncService {
       for (const key of missingKeys) {
         try {
           const remoteArticle = await ApiClient.getObject(key);
-          
-          if (remoteArticle.title && remoteArticle.body) {
-            // Segment the article
-            const segments = await segmentArticle(remoteArticle.body);
 
-            // Create article object
-            const article: Article = {
-              id: key,
-              title: remoteArticle.title,
-              content: remoteArticle.body,
-              segments,
-              wordCount: segments.filter(s => s.type === 'chinese').length,
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
+          if (remoteArticle.title && remoteArticle.body) {
+            // Pass server metadata so StorageService can use server segments
+            const serverMeta = {
+              serverSegments: remoteArticle.segments,
+              serverPinyin: remoteArticle.pinyin,
+              serverTranslation: remoteArticle.translation,
             };
 
-            // Save article
             await StorageService.saveArticle({
-              title: article.title,
-              content: article.content,
-            }, key);
+              title: remoteArticle.title,
+              content: remoteArticle.body,
+            }, key, serverMeta);
 
             downloadedCount++;
           }

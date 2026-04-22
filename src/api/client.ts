@@ -1,8 +1,9 @@
-import { OpenAPI, AuthenticationService, StorageService, VocabularyService, DocumentExtractionService, BackupService } from './generated';
+import { OpenAPI, AuthenticationService, StorageService, VocabularyService, DocumentExtractionService, BackupService, ArticleGenerationService } from './generated';
 import { TokenStorage } from './tokenStorage';
 import { DeviceInfoService } from './deviceInfo';
 import type { KeyRequest } from './generated/models/KeyRequest';
 import type { ExportBackupRequest } from './generated/models/ExportBackupRequest';
+import type { GenerateArticleRequest } from './generated/models/GenerateArticleRequest';
 
 // Get API base URL from environment
 // For local development: set in .env file (defaults to localhost:3000)
@@ -185,6 +186,18 @@ export class ApiClient {
   static async importBackup(appUserId: string) {
     this.initialize();
     return BackupService.importBackup(appUserId);
+  }
+
+  // ====================
+  // Article Generation API Methods
+  // ====================
+
+  /**
+   * Generate a personalized Chinese reading article
+   */
+  static async generateArticle(request: GenerateArticleRequest) {
+    this.initialize();
+    return ArticleGenerationService.generateArticle(request);
   }
 
   // ====================

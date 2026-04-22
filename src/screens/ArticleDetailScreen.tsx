@@ -8,6 +8,7 @@ import {StorageService} from '../services/storage';
 import DebugService from '../services/debug';
 import CharacterRecognitionService from '../services/characterRecognition';
 import SegmentedText from '../components/SegmentedText';
+import PinyinSegmentedText from '../components/PinyinSegmentedText';
 import WordLookupModal from '../components/WordLookupModal';
 import CompleteReadingButton from '../components/CompleteReadingButton';
 import ReadingStatsPanel from '../components/ReadingStatsPanel';
@@ -46,7 +47,10 @@ export default function ArticleDetailScreen() {
 
   // Menu state
   const [menuVisible, setMenuVisible] = useState(false);
-  
+
+  // Pinyin display toggle
+  const [showPinyin, setShowPinyin] = useState(false);
+
   // Font settings state
   const [fontSize, setFontSize] = useState(18);
   const [lineHeight, setLineHeight] = useState(32);
@@ -323,6 +327,29 @@ export default function ArticleDetailScreen() {
           {article.source && (
             <Text variant="bodySmall" style={styles.source}>Source: {article.source}</Text>
           )}
+          {article.serverPinyin && (
+            <View style={styles.pinyinToggleRow}>
+              <Text variant="bodySmall" style={styles.pinyinToggleLabel}>
+                Pinyin
+              </Text>
+              <View
+                style={[
+                  styles.pinyinToggleButton,
+                  showPinyin && styles.pinyinToggleButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.pinyinToggleButtonText,
+                    showPinyin && styles.pinyinToggleButtonTextActive,
+                  ]}
+                  onPress={() => setShowPinyin(!showPinyin)}
+                >
+                  {showPinyin ? 'ON' : 'OFF'}
+                </Text>
+              </View>
+            </View>
+          )}
         </Card.Content>
       </Card>
 
@@ -336,13 +363,24 @@ export default function ArticleDetailScreen() {
       >
         <View style={styles.contentWrapper}>
           {article?.segments && article.segments.length > 0 ? (
-            <SegmentedText
-              segments={article.segments}
-              content={article.content}
-              onWordPress={handleWordPress}
-              fontSize={fontSize}
-              lineHeight={lineHeight}
-            />
+            showPinyin && article.serverPinyin ? (
+              <PinyinSegmentedText
+                segments={article.segments}
+                content={article.content}
+                serverPinyin={article.serverPinyin}
+                onWordPress={handleWordPress}
+                fontSize={fontSize}
+                lineHeight={lineHeight}
+              />
+            ) : (
+              <SegmentedText
+                segments={article.segments}
+                content={article.content}
+                onWordPress={handleWordPress}
+                fontSize={fontSize}
+                lineHeight={lineHeight}
+              />
+            )
           ) : (
             <Text variant="bodyLarge" style={styles.contentText}>{article.content}</Text>
           )}
@@ -406,6 +444,32 @@ const styles = StyleSheet.create({
   source: {
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  pinyinToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  pinyinToggleLabel: {
+    color: '#666',
+  },
+  pinyinToggleButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: '#e0e0e0',
+  },
+  pinyinToggleButtonActive: {
+    backgroundColor: '#1976d2',
+  },
+  pinyinToggleButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  pinyinToggleButtonTextActive: {
+    color: '#fff',
   },
   contentContainer: {
     flex: 1,

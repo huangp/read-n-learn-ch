@@ -15,8 +15,8 @@ import {
 // RevenueCat API Keys - Replace with your actual keys
 const REVENUECAT_API_KEYS = {
   // TODO this is Test Store api Key
-  // ios: 'test_fPzHynWmeHaSJTqWWfAvNDKNLQQ',
-  ios: 'appl_GxmQkNQAzAyhHjxkoXktiuBZZmI',
+  ios: 'test_fPzHynWmeHaSJTqWWfAvNDKNLQQ',
+  // ios: 'appl_GxmQkNQAzAyhHjxkoXktiuBZZmI',
   // android: 'YOUR_ANDROID_PUBLIC_SDK_KEY',
 };
 

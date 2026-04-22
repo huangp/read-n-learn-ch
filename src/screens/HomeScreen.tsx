@@ -30,10 +30,11 @@ import { StorageService } from '../services/storage';
 import CharacterRecognitionService, { ArticleMeta } from '../services/characterRecognition';
 import { ArticleTagsService } from '../services/articleTags';
 import { SyncButton, SyncButtonRef } from '../components/SyncButton';
+import { GenerateArticleButton, GenerateArticleButtonRef } from '../components/GenerateArticleButton';
 import { AvailableArticlesModal } from '../components/AvailableArticlesModal';
 import { PaywallModal } from '../components/subscription/PaywallModal';
 import { ApiClient } from '../api/client';
-import type { ObjectInfo } from '../api/generated';
+import type { ObjectInfo, GenerateArticleResponse } from '../api/generated';
 import { vocabularyStore } from '../store/vocabularyStore';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
@@ -60,10 +61,12 @@ export default function HomeScreen() {
   const [tagMenuVisible, setTagMenuVisible] = useState(false);
   const [showAvailableArticles, setShowAvailableArticles] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallFeatureName, setPaywallFeatureName] = useState('Premium');
   const [availableArticles, setAvailableArticles] = useState<ObjectInfo[]>([]);
   const [isMetaStale, setIsMetaStale] = useState(false);
   const isSmallScreen = width < 600;
   const syncButtonRef = useRef<SyncButtonRef>(null);
+  const generateButtonRef = useRef<GenerateArticleButtonRef>(null);
   const isRefreshingMetaRef = useRef(false);
   // Show tag dropdown on small screen if there are many tags
   const showTagDropdown = isSmallScreen && allTags.length > 2;
@@ -215,6 +218,44 @@ export default function HomeScreen() {
     setSnackbarVisible(true);
   };
 
+  const handleGenerateArticle = async (response: GenerateArticleResponse) => {
+    if (!response.article) {
+      setSnackbarMessage('Failed to generate article');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    try {
+      // Create title from first 20 chars of article or use default
+      const title = response.title || response.article.slice(0, 20) + (response.article.length > 20 ? '...' : '');
+
+      const formData = {
+        title,
+        content: response.article,
+        tags: ['generated'],
+        source: 'AI Generated',
+      };
+
+      const serverMeta = {
+        serverSegments: response.segments,
+        serverPinyin: response.pinyin,
+        serverTranslation: response.translation,
+      };
+
+      const savedArticle = await StorageService.saveArticle(formData, undefined, serverMeta);
+
+      // Refresh articles list
+      await loadArticles();
+
+      // Navigate to the article
+      navigation.navigate('ArticleDetail', { articleId: savedArticle.id });
+    } catch (error) {
+      console.error('[HomeScreen] Error saving generated article:', error);
+      setSnackbarMessage('Failed to save generated article');
+      setSnackbarVisible(true);
+    }
+  };
+
   const onDismissSnackbar = () => setSnackbarVisible(false);
 
   useFocusEffect(
@@ -324,6 +365,7 @@ export default function HomeScreen() {
       <Appbar.Header>
         <Appbar.Content title="Read and Learn Chinese" />
         <SyncButton ref={syncButtonRef} onSyncComplete={handleSyncComplete} onShowMessage={handleShowMessage} onShowAvailableArticles={handleShowAvailableArticles} hidden={isSmallScreen} />
+        <GenerateArticleButton ref={generateButtonRef} onShowMessage={handleShowMessage} onShowPaywall={() => { setPaywallFeatureName('article generation'); setShowPaywall(true); }} onArticleGenerated={handleGenerateArticle} hidden={isSmallScreen} />
         {isSmallScreen ? (
           <Menu
             visible={menuVisible}
@@ -331,6 +373,7 @@ export default function HomeScreen() {
             anchor={<Appbar.Action icon="dots-vertical" onPress={() => setMenuVisible(true)} />}
           >
             <Menu.Item leadingIcon="cloud-download" title="Cloud Sync (Premium)" onPress={() => { setMenuVisible(false); syncButtonRef.current?.triggerSync(); }} />
+            <Menu.Item leadingIcon="creation" title="Generate Article (Premium)" onPress={() => { setMenuVisible(false); generateButtonRef.current?.triggerGenerate(); }} />
             <Menu.Item leadingIcon="chart-line" title="Progress" onPress={() => { setMenuVisible(false); navigation.navigate('Progress'); }} />
             <Menu.Item leadingIcon="translate" title="Vocabulary" onPress={() => { setMenuVisible(false); navigation.navigate('CharacterBrowser'); }} />
             <Menu.Item leadingIcon="crown" title="Premium" onPress={() => { setMenuVisible(false); navigation.navigate('Subscription'); }} />
@@ -488,6 +531,7 @@ export default function HomeScreen() {
         articles={availableArticles}
         onSubscribe={() => {
           setShowAvailableArticles(false);
+          setPaywallFeatureName('cloud sync');
           setShowPaywall(true);
         }}
       />
@@ -495,7 +539,7 @@ export default function HomeScreen() {
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
-        featureName="cloud sync"
+        featureName={paywallFeatureName}
       />
     </View>
   );

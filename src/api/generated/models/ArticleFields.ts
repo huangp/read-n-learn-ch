@@ -2,22 +2,22 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type LookupResponse = {
+export type ArticleFields = {
     /**
-     * The input vocabulary
+     * Article title
      */
-    vocabulary?: string;
+    title?: string;
     /**
      * Pinyin romanization with tone marks
      */
     pinyin?: string;
     /**
-     * English definition
+     * English translation
      */
-    definition?: string;
+    translation?: string;
     /**
-     * Detailed stroke order information
+     * Article segmented into words and phrases
      */
-    strokeOrder?: string;
+    segments?: Array<string>;
 };
 

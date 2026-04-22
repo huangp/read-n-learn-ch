@@ -14,6 +14,13 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 // Mock dependencies
 jest.mock('../segmentation', () => ({
   segmentArticle: jest.fn(),
+  transformSegmentStrings: jest.fn((segments) =>
+    segments.map((text: string, i: number) => ({
+      id: `seg-${i}`,
+      text,
+      type: /[\u4e00-\u9fff]/.test(text) ? 'chinese' : 'other',
+    }))
+  ),
 }));
 
 jest.mock('../characterRecognition', () => ({
@@ -40,7 +47,7 @@ jest.mock('../articleTags', () => ({
   },
 }));
 
-import { segmentArticle } from '../segmentation';
+import { segmentArticle, transformSegmentStrings } from '../segmentation';
 import CharacterRecognitionService from '../characterRecognition';
 import { ArticleTagsService } from '../articleTags';
 
@@ -170,6 +177,28 @@ describe('StorageService', () => {
       expect(segmentArticle).toHaveBeenCalledWith('Line 1\nLine 2');
       expect(result?.segments).toEqual(newSegments);
     });
+
+    it('should skip stale-segment check for server-segmented articles', async () => {
+      const mockArticle: Article = {
+        id: '1',
+        title: 'Test',
+        content: 'Line 1\nLine 2',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        wordCount: 10,
+        hasServerSegments: true,
+        segments: [
+          { id: '1', text: 'Line', type: 'other' },
+          { id: '2', text: ' ', type: 'other' },
+        ],
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([mockArticle]));
+
+      const result = await StorageService.getArticleById('1');
+
+      expect(segmentArticle).not.toHaveBeenCalled();
+      expect(result?.segments).toEqual(mockArticle.segments);
+    });
   });
 
   describe('saveArticle', () => {
@@ -210,7 +239,7 @@ describe('StorageService', () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([existingArticle]));
       (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
       
-      const mockSegments = [{ text: 'Updated', type: 'other' }];
+      const mockSegments = [{ id: 'seg-0', text: 'Updated', type: 'other' }];
       (segmentArticle as jest.Mock).mockResolvedValue(mockSegments);
 
       const result = await StorageService.saveArticle(mockFormData, 'existing-id');
@@ -219,6 +248,99 @@ describe('StorageService', () => {
       expect(result.title).toBe('New Article');
       expect(result.createdAt).toBe(existingArticle.createdAt);
       expect(result.updatedAt).toBeGreaterThan(existingArticle.updatedAt);
+    });
+
+    it('should use server segments for new article when provided', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([]));
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      const serverSegments = ['你好', '世界'];
+      const serverMeta = {
+        serverSegments,
+        serverPinyin: 'nǐ hǎo shì jiè',
+        serverTranslation: 'Hello world',
+      };
+
+      const result = await StorageService.saveArticle(mockFormData, undefined, serverMeta);
+
+      expect(transformSegmentStrings).toHaveBeenCalledWith(serverSegments);
+      expect(result.hasServerSegments).toBe(true);
+      expect(result.serverPinyin).toBe('nǐ hǎo shì jiè');
+      expect(result.serverTranslation).toBe('Hello world');
+      expect(segmentArticle).not.toHaveBeenCalled();
+    });
+
+    it('should preserve server metadata when editing without content change', async () => {
+      const existingArticle: Article = {
+        id: 'existing-id',
+        title: 'Old Title',
+        content: 'Old content',
+        createdAt: Date.now() - 1000,
+        updatedAt: Date.now() - 1000,
+        wordCount: 5,
+        hasServerSegments: true,
+        serverPinyin: 'old pinyin',
+        serverTranslation: 'old translation',
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([existingArticle]));
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      const serverMeta = {
+        serverSegments: ['Old', 'content'],
+        serverPinyin: 'new pinyin',
+        serverTranslation: 'new translation',
+      };
+
+      // Content unchanged — should use new server metadata
+      const formDataUnchanged: ArticleFormData = {
+        title: 'Updated Title',
+        content: 'Old content',
+      };
+
+      const result = await StorageService.saveArticle(formDataUnchanged, 'existing-id', serverMeta);
+
+      expect(transformSegmentStrings).toHaveBeenCalledWith(['Old', 'content']);
+      expect(result.hasServerSegments).toBe(true);
+      expect(result.serverPinyin).toBe('new pinyin');
+      expect(segmentArticle).not.toHaveBeenCalled();
+    });
+
+    it('should clear server metadata and re-segment locally when content changes', async () => {
+      const existingArticle: Article = {
+        id: 'existing-id',
+        title: 'Old Title',
+        content: 'Old content',
+        createdAt: Date.now() - 1000,
+        updatedAt: Date.now() - 1000,
+        wordCount: 5,
+        hasServerSegments: true,
+        serverPinyin: 'old pinyin',
+        serverTranslation: 'old translation',
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([existingArticle]));
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      const mockSegments = [{ id: 'seg-0', text: 'New', type: 'other' }];
+      (segmentArticle as jest.Mock).mockResolvedValue(mockSegments);
+
+      const serverMeta = {
+        serverSegments: ['Old', 'content'],
+        serverPinyin: 'should be cleared',
+        serverTranslation: 'should be cleared',
+      };
+
+      // Content changed — should discard server metadata
+      const formDataChanged: ArticleFormData = {
+        title: 'Updated Title',
+        content: 'New content',
+      };
+
+      const result = await StorageService.saveArticle(formDataChanged, 'existing-id', serverMeta);
+
+      expect(segmentArticle).toHaveBeenCalledWith('New content');
+      expect(result.hasServerSegments).toBeFalsy();
+      expect(result.serverPinyin).toBeUndefined();
+      expect(result.serverTranslation).toBeUndefined();
     });
 
     it('should count Chinese characters correctly', async () => {

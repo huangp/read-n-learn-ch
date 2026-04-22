@@ -3,14 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ArticleFields } from './ArticleFields';
-export type ObjectResponse = (ArticleFields & {
+export type GenerateArticleResponse = (ArticleFields & {
     /**
-     * Article content
+     * Generated Chinese article (100-500 characters)
      */
-    body?: string;
+    article?: string;
     /**
-     * Article tags
+     * The OpenRouter model used to generate the article
      */
-    tags?: Array<string>;
+    modelUsed?: string;
 });
 

@@ -31,6 +31,38 @@ function hasChinese(str: string): boolean {
   return /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/.test(str);
 }
 
+export function transformSegmentStrings(segments: string[]): SegmentedWord[] {
+  if (!segments || segments.length === 0) {
+    DebugService.log('SEGMENTATION', 'Empty segments, returning empty array');
+    return [];
+  }
+  let segId = 0;
+
+  const result: SegmentedWord[] = [];
+
+  for (const word of segments) {
+    // Handle newline tokens that the server may have included
+    if (word === '\n') {
+      result.push({ id: `seg-${segId++}`, text: '\n', type: 'other' });
+      continue;
+    }
+    if (word === '\n\n' || word === '\r\n') {
+      result.push({ id: `seg-${segId++}`, text: '\n\n', type: 'other' });
+      continue;
+    }
+
+    const type: 'chinese' | 'other' = hasChinese(word) ? 'chinese' : 'other';
+    result.push({ id: `seg-${segId++}`, text: word, type });
+  }
+
+  DebugService.log('SEGMENTATION', `Transformed ${segments.length} server segments`, {
+    firstFew: result.slice(0, 3),
+    lastFew: result.slice(-3),
+  });
+
+  return result;
+}
+
 /**
  * Segment Chinese text into words.
  * Called when saving / importing an article.

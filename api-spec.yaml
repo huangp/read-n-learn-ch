@@ -295,6 +295,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /generate-article:
+    post:
+      summary: Generate Chinese Article
+      description: Generate a personalized Chinese reading article using known and learning vocabulary. Optionally specify a topic. Article length is 100-500 Chinese characters.
+      operationId: generateArticle
+      tags:
+        - Article Generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateArticleRequest'
+      responses:
+        '200':
+          description: Article generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateArticleResponse'
+        '400':
+          description: Bad request - missing or invalid known vocabulary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /extract:
     post:
       summary: Extract Text from Documents
@@ -460,22 +493,43 @@ components:
           format: date-time
           description: Last modification timestamp
 
-    ObjectResponse:
-      type: object
-      properties:
-        title:
-          type: string
-          description: Article title (from filename)
-        body:
-          type: string
-          description: Article content
-
-    CreateObjectRequest:
+    ArticleFields:
       type: object
       properties:
         title:
           type: string
           description: Article title
+        pinyin:
+          type: string
+          description: Pinyin romanization with tone marks
+        translation:
+          type: string
+          description: English translation
+        segments:
+          type: array
+          items:
+            type: string
+          description: Article segmented into words and phrases
+
+    ObjectResponse:
+      allOf:
+        - $ref: '#/components/schemas/ArticleFields'
+      type: object
+      properties:
+        body:
+          type: string
+          description: Article content
+        tags:
+          type: array
+          items:
+            type: string
+          description: Article tags
+
+    CreateObjectRequest:
+      allOf:
+        - $ref: '#/components/schemas/ArticleFields'
+      type: object
+      properties:
         body:
           type: string
           description: Article content
@@ -509,14 +563,18 @@ components:
           description: Content type
 
     PutObjectRequest:
+      allOf:
+        - $ref: '#/components/schemas/ArticleFields'
       type: object
       properties:
-        title:
-          type: string
-          description: Article title (optional, will preserve existing if not provided)
         body:
           type: string
           description: Article content
+        tags:
+          type: array
+          items:
+            type: string
+          description: Article tags
 
     PutObjectResponse:
       type: object
@@ -564,13 +622,47 @@ components:
         strokeOrder:
           type: string
           description: Detailed stroke order information
-        examples:
+
+    GenerateArticleRequest:
+      type: object
+      required:
+        - known
+      properties:
+        known:
           type: array
           items:
-            $ref: '#/components/schemas/ExampleSentence'
-        cached:
-          type: boolean
-          description: Whether the result was retrieved from cache
+            type: string
+          description: Array of Chinese words the user already knows
+          example:
+            - 今天
+            - 天气
+            - 很好
+        learning:
+          type: array
+          items:
+            type: string
+          description: Array of Chinese words the user is currently learning (optional)
+          example:
+            - 跑步
+            - 公园
+        topic:
+          type: string
+          description: Optional topic to guide the article content
+          example: exercise
+
+    GenerateArticleResponse:
+      allOf:
+        - $ref: '#/components/schemas/ArticleFields'
+      type: object
+      properties:
+        article:
+          type: string
+          description: Generated Chinese article (100-500 characters)
+          example: 今天天气很好，我去公园跑步。
+        modelUsed:
+          type: string
+          description: The OpenRouter model used to generate the article
+          example: google/gemini-2.5-flash
 
     ExampleSentence:
       type: object

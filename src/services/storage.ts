@@ -1,12 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Article, ArticleFormData, ReadingProgress } from '../types';
-import { segmentArticle } from './segmentation';
+import { Article, ArticleFormData, ReadingProgress, SegmentedWord } from '../types';
+import { segmentArticle, transformSegmentStrings } from './segmentation';
 import CharacterRecognitionService from './characterRecognition';
 import DebugService from './debug';
 import { ArticleTagsService } from './articleTags';
 
 const ARTICLES_KEY = '@articles';
 const READING_PROGRESS_KEY = '@reading_progress';
+
+export interface ServerArticleMetadata {
+  serverPinyin?: string;
+  serverTranslation?: string;
+  serverSegments?: string[];
+}
 
 export class StorageService {
   static async getAllArticles(): Promise<Article[]> {
@@ -25,8 +31,9 @@ export class StorageService {
       const article = articles.find(a => a.id === id) || null;
 
       // Auto re-segment if article has content with newlines but segments
-      // don't contain any newline tokens (stale segmentation)
-      if (article && article.content && /\n/.test(article.content)) {
+      // don't contain any newline tokens (stale segmentation).
+      // Skip for server-segmented articles — the server segments are authoritative.
+      if (article && !article.hasServerSegments && article.content && /\n/.test(article.content)) {
         const hasNewlineSegment = article.segments?.some(
           (s) => s.text === '\n' || s.text === '\n\n'
         );
@@ -51,18 +58,61 @@ export class StorageService {
     }
   }
 
-  static async saveArticle(formData: ArticleFormData, articleId?: string): Promise<Article> {
+  static async saveArticle(
+    formData: ArticleFormData,
+    articleId?: string,
+    serverMeta?: ServerArticleMetadata
+  ): Promise<Article> {
     DebugService.log('STORAGE', 'Saving article', { articleId, contentLength: formData.content?.length });
-    
+
     try {
       const articles = await this.getAllArticles();
       const now = Date.now();
-      
-      // Segment the content for tap-to-lookup
-      DebugService.log('STORAGE', 'Starting segmentation for article');
-      const segments = await segmentArticle(formData.content);
+
+      let segments: SegmentedWord[];
+      let hasServerSegments = false;
+      let serverPinyin: string | undefined;
+      let serverTranslation: string | undefined;
+
+      if (articleId) {
+        const existing = articles.find(a => a.id === articleId);
+        if (existing) {
+          const contentChanged = existing.content !== formData.content;
+
+          if (contentChanged) {
+            // User edited the body — discard server metadata and re-segment locally
+            DebugService.log('STORAGE', 'Content changed, clearing server metadata and re-segmenting', { articleId });
+            segments = await segmentArticle(formData.content);
+          } else if (serverMeta?.serverSegments && serverMeta.serverSegments.length > 0) {
+            // Content unchanged — trust server segments if provided
+            DebugService.log('STORAGE', 'Using server segments', { articleId, count: serverMeta.serverSegments.length });
+            segments = transformSegmentStrings(serverMeta.serverSegments);
+            hasServerSegments = true;
+            serverPinyin = serverMeta.serverPinyin;
+            serverTranslation = serverMeta.serverTranslation;
+          } else {
+            // No server segments — segment locally
+            segments = await segmentArticle(formData.content);
+          }
+        } else {
+          // Existing ID not found (shouldn't happen) — fall back to local segmentation
+          segments = await segmentArticle(formData.content);
+        }
+      } else {
+        // New article — use server segments if provided, otherwise local
+        if (serverMeta?.serverSegments && serverMeta.serverSegments.length > 0) {
+          DebugService.log('STORAGE', 'Using server segments for new article', { count: serverMeta.serverSegments.length });
+          segments = transformSegmentStrings(serverMeta.serverSegments);
+          hasServerSegments = true;
+          serverPinyin = serverMeta.serverPinyin;
+          serverTranslation = serverMeta.serverTranslation;
+        } else {
+          segments = await segmentArticle(formData.content);
+        }
+      }
+
       DebugService.log('STORAGE', `Segmentation complete: ${segments.length} segments`);
-      
+
       // Normalize tags
       const normalizedTags = formData.tags ? ArticleTagsService.validateTags(formData.tags) : undefined;
       const formDataWithNormalizedTags = {
@@ -75,13 +125,16 @@ export class StorageService {
         if (index !== -1) {
           // Get old tags for index update
           const oldTags = articles[index].tags || [];
-          
+
           articles[index] = {
             ...articles[index],
             ...formDataWithNormalizedTags,
             updatedAt: now,
             wordCount: this.countChineseWords(formData.content),
             segments,
+            hasServerSegments,
+            serverPinyin,
+            serverTranslation,
           };
           await AsyncStorage.setItem(ARTICLES_KEY, JSON.stringify(articles));
           DebugService.log('STORAGE', 'Article updated successfully', { articleId, segmentsCount: segments.length });
@@ -114,6 +167,9 @@ export class StorageService {
         updatedAt: now,
         wordCount: this.countChineseWords(formData.content),
         segments,
+        hasServerSegments,
+        serverPinyin,
+        serverTranslation,
       };
 
       articles.unshift(newArticle);

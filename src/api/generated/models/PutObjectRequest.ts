@@ -2,14 +2,15 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type PutObjectRequest = {
-    /**
-     * Article title (optional, will preserve existing if not provided)
-     */
-    title?: string;
+import type { ArticleFields } from './ArticleFields';
+export type PutObjectRequest = (ArticleFields & {
     /**
      * Article content
      */
     body?: string;
-};
+    /**
+     * Article tags
+     */
+    tags?: Array<string>;
+});
 

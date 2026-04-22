@@ -381,6 +381,22 @@ class CharacterRecognitionService {
     return this.vocabularyDBUtils.getVocabularyKnownStatus(words);
   }
 
+  /**
+   * Get the total count of known vocabulary items.
+   */
+  async getKnownVocabularyCount(): Promise<number> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
+    return this.vocabularyDBUtils.getKnownVocabularyCount();
+  }
+
+  /**
+   * Get all known vocabulary items.
+   */
+  async getKnownVocabulary(): Promise<string[]> {
+    if (!this.vocabularyDBUtils) throw new Error('Database not initialized');
+    return this.vocabularyDBUtils.getKnownVocabulary();
+  }
+
   // ---- Tag Management ----
   async getAllTags(): Promise<Tag[]> {
     if (!this.vocabularyDBUtils) throw new Error('Database not initialized');

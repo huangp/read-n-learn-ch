@@ -2,11 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type CreateObjectRequest = {
-    /**
-     * Article title
-     */
-    title?: string;
+import type { ArticleFields } from './ArticleFields';
+export type CreateObjectRequest = (ArticleFields & {
     /**
      * Article content
      */
@@ -15,5 +12,5 @@ export type CreateObjectRequest = {
      * Article tags
      */
     tags?: Array<string>;
-};
+});
 
