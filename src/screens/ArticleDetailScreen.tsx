@@ -51,6 +51,9 @@ export default function ArticleDetailScreen() {
   // Pinyin display toggle
   const [showPinyin, setShowPinyin] = useState(false);
 
+  // Translation display toggle
+  const [showTranslation, setShowTranslation] = useState(false);
+
   // Font settings state
   const [fontSize, setFontSize] = useState(18);
   const [lineHeight, setLineHeight] = useState(32);
@@ -350,6 +353,29 @@ export default function ArticleDetailScreen() {
               </View>
             </View>
           )}
+          {article.serverTranslation && (
+            <View style={styles.pinyinToggleRow}>
+              <Text variant="bodySmall" style={styles.pinyinToggleLabel}>
+                Translation
+              </Text>
+              <View
+                style={[
+                  styles.pinyinToggleButton,
+                  showTranslation && styles.pinyinToggleButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.pinyinToggleButtonText,
+                    showTranslation && styles.pinyinToggleButtonTextActive,
+                  ]}
+                  onPress={() => setShowTranslation(!showTranslation)}
+                >
+                  {showTranslation ? 'ON' : 'OFF'}
+                </Text>
+              </View>
+            </View>
+          )}
         </Card.Content>
       </Card>
 
@@ -385,6 +411,18 @@ export default function ArticleDetailScreen() {
             <Text variant="bodyLarge" style={styles.contentText}>{article.content}</Text>
           )}
         </View>
+
+        {/* Translation Section */}
+        {showTranslation && article.serverTranslation && (
+          <View style={styles.translationSection}>
+            <Text variant="titleSmall" style={styles.translationTitle}>
+              Translation
+            </Text>
+            <Text variant="bodyMedium" style={styles.translationText}>
+              {article.serverTranslation}
+            </Text>
+          </View>
+        )}
 
         {/* Stats & Complete Reading - inline below content */}
         <View style={styles.bottomSection}>
@@ -487,6 +525,21 @@ const styles = StyleSheet.create({
   contentText: {
     fontSize: 18,
     lineHeight: 32,
+  },
+  translationSection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  translationTitle: {
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  translationText: {
+    lineHeight: 24,
+    color: '#444',
   },
   bottomSection: {
     marginTop: 16,

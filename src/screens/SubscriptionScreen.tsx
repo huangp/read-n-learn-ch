@@ -40,7 +40,7 @@ const BenefitCard = () => (
         <View style={styles.benefitRow}>
           <List.Icon icon="star" />
           <Text variant="bodyMedium" style={styles.benefitText}>
-            Personalised AI generated articles to re-enforce learning characters (coming soon)
+            Personalised AI generated articles to re-enforce learning characters
           </Text>
         </View>
       </Card.Content>
