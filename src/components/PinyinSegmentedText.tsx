@@ -1,7 +1,7 @@
 import React, {useMemo} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {SegmentedWord} from '../types';
-import {alignPinyinWithContent, groupSegmentsBySentences} from '../utils/pinyinAlignment';
+import {alignPinyinWithContent, groupSegmentsBySentences, SentenceBlock} from '../utils/pinyinAlignment';
 import SegmentedText from './SegmentedText';
 
 interface PinyinSegmentedTextProps {
@@ -29,7 +29,72 @@ export default function PinyinSegmentedText({
   return (
     <View style={styles.container}>
       {sentenceBlocks.map((block, index) => (
-        <View key={`sentence-${index}`} style={styles.sentenceBlock}>
+        <SentenceBlockView
+          key={`sentence-${index}`}
+          block={block}
+          index={index}
+          fontSize={fontSize}
+          lineHeight={lineHeight}
+          onWordPress={onWordPress}
+        />
+      ))}
+    </View>
+  );
+}
+
+interface SentenceBlockViewProps {
+  block: SentenceBlock;
+  index: number;
+  fontSize: number;
+  lineHeight: number;
+  onWordPress: (word: SegmentedWord) => void;
+}
+
+function SentenceBlockView({
+  block,
+  index,
+  fontSize,
+  lineHeight,
+  onWordPress,
+}: SentenceBlockViewProps) {
+  // Build pinyin display: if we have per-character matches, render each character
+  // with its pinyin above it. Otherwise, fall back to the full pinyin string.
+  const pinyinContent = useMemo(() => {
+    if (block.matches && block.matches.length > 0) {
+      return block.matches;
+    }
+    return null;
+  }, [block.matches]);
+
+  return (
+    <View key={`sentence-${index}`} style={styles.sentenceBlock}>
+      {pinyinContent ? (
+        // Per-character pinyin display
+        <View style={styles.pinyinCharactersContainer}>
+          {pinyinContent.map((match, charIndex) => (
+            <View key={`char-${charIndex}`} style={styles.characterColumn}>
+              <Text
+                style={[
+                  styles.pinyinChar,
+                  {fontSize: fontSize * 0.65, lineHeight: lineHeight * 0.7},
+                ]}
+              >
+                {match.pinyin || ' '}
+              </Text>
+              <Text
+                style={[
+                  styles.chineseChar,
+                  {fontSize, lineHeight},
+                ]}
+              >
+                {match.char}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
+        // Fallback: full pinyin string above segmented text
+        <>
           <Text
             style={[
               styles.pinyinLine,
@@ -47,8 +112,8 @@ export default function PinyinSegmentedText({
               lineHeight={lineHeight}
             />
           </View>
-        </View>
-      ))}
+        </>
+      )}
     </View>
   );
 }
@@ -68,5 +133,24 @@ const styles = StyleSheet.create({
   chineseLine: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  pinyinCharactersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 0,
+  },
+  characterColumn: {
+    alignItems: 'center',
+    marginRight: 1,
+  },
+  pinyinChar: {
+    color: '#1976d2',
+    fontWeight: '500',
+    textAlign: 'center',
+    minWidth: 20,
+  },
+  chineseChar: {
+    textAlign: 'center',
+    minWidth: 20,
   },
 });

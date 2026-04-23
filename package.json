@@ -35,7 +35,7 @@
     "expo-updates": "^55.0.20",
     "mammoth": "^1.11.0",
     "opencc-js": "^1.0.5",
-    "pinyin": "^4.0.0",
+    "pinyin-pro": "^3.28.1",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-element-dropdown": "^2.12.4",
@@ -56,6 +56,7 @@
     "express": "^5.2.1",
     "jest": "^30.2.0",
     "openapi-typescript-codegen": "^0.30.0",
+    "pinyin": "^4.0.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
