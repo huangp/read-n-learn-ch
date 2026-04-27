@@ -28,10 +28,13 @@ export interface SentenceBlock {
 // ==================== Constants ====================
 
 /** Sentence-ending punctuation marks */
-const SENTENCE_END_DELIMITERS = /[。！？]/;
+const SENTENCE_END_DELIMITERS = /([。！？]+)/g;
+
+/** All Chinese punctuation marks */
+const ALL_DELIMITERS = /[。，！？；：、]/g;
 
 /** Pattern to strip from pinyin (punctuation and extra whitespace) */
-const PINYIN_NOISE_PATTERN = /[。，！？；：、\.\,\!\?\;\:\n\s]+/g;
+const PINYIN_NOISE_PATTERN = /[。，！？；：、""''""'\'\.\,\!\?\;\:\n\s]+/g;
 
 // ==================== Main Functions ====================
 
@@ -39,15 +42,13 @@ const PINYIN_NOISE_PATTERN = /[。，！？；：、\.\,\!\?\;\:\n\s]+/g;
  * Align server-provided pinyin with Chinese content by splitting into natural segments
  * and using matchPinyinToChars for per-character alignment.
  *
- * Natural segments are broken at:
- * - Sentence endings (。！？)
- * - Clause boundaries (，；：、)
- * - Paragraph breaks (\n\n)
- * - Line breaks (\n)
+ * Strategy:
+ * 1. Split content by sentence-ending delimiters (。！？) keeping delimiters attached
+ * 2. Normalize pinyin punctuation (convert English to Chinese) and split by same delimiters
+ * 3. Match content segments with pinyin segments 1:1
+ * 4. Use matchPinyinToChars on each segment pair for per-character alignment
  *
- * @param content - Chinese text with punctuation
- * @param pinyin - Server-provided pinyin string
- * @returns Array of aligned segments with per-character pinyin matches
+ * This ensures each segment's pinyin exactly matches its content characters.
  */
 export function alignPinyinWithContent(
   content: string,
@@ -57,42 +58,37 @@ export function alignPinyinWithContent(
     return [];
   }
 
-  // Clean the pinyin string (remove punctuation, normalize whitespace)
-  const cleanPinyin = stripPinyinNoise(pinyin);
-  
-  // Match pinyin to all characters first
-  const allMatches = matchPinyinToChars(content, cleanPinyin);
-  
-  // Split content into natural segments
-  const contentSegments = splitIntoNaturalSegments(content);
-  
-  // Distribute matches across segments
+  // Normalize content: convert English punctuation to Chinese equivalents
+  const normalizedContent = normalizeContentPunctuation(content);
+
+  // Split content by sentence delimiters, keeping delimiters attached to preceding text
+  const contentSegments = splitByDelimiters(normalizedContent, SENTENCE_END_DELIMITERS);
+
+  // Normalize pinyin: convert English punctuation to Chinese equivalents
+  const normalizedPinyin = normalizePinyinSpacing(pinyin);
+  const pinyinSegments = splitByDelimiters(normalizedPinyin, SENTENCE_END_DELIMITERS);
+
+  // Match parts up and align pinyin per segment
   const result: AlignedPinyinSegment[] = [];
-  let matchIdx = 0;
-  
-  for (const chinese of contentSegments) {
-    const charCount = Array.from(chinese).filter(c => /\p{Script=Han}/u.test(c)).length;
-    
-    // Extract matches for this segment
-    let segmentMatches: PinyinMatch[] | null = null;
-    let segmentPinyin = '';
-    
-    if (allMatches && matchIdx < allMatches.length) {
-      // Count how many matches we need for this segment
-      const endIdx = Math.min(matchIdx + charCount, allMatches.length);
-      segmentMatches = allMatches.slice(matchIdx, endIdx);
-      segmentPinyin = segmentMatches.map(m => m.pinyin).filter(p => p).join(' ');
-      matchIdx = endIdx;
+  const count = Math.min(contentSegments.length, pinyinSegments.length);
+
+  for (let i = 0; i < count; i++) {
+    const chinese = contentSegments[i].trim();
+    const pinyinPart = stripTrailingPunctuation(pinyinSegments[i]).trim();
+
+    if (chinese || pinyinPart) {
+      // Use matchPinyinToChars for per-character alignment
+      const matches = matchPinyinToChars(chinese, pinyinPart);
+
+      result.push({
+        chinese,
+        pinyin: pinyinPart,
+        matches,
+        segments: [], // Will be populated by groupSegmentsBySentences
+      });
     }
-    
-    result.push({
-      chinese,
-      pinyin: segmentPinyin,
-      matches: segmentMatches,
-      segments: [], // Will be populated by groupSegmentsBySentences
-    });
   }
-  
+
   return result;
 }
 
@@ -176,50 +172,60 @@ export function groupSegmentsBySentences(
 // ==================== Helper Functions ====================
 
 /**
- * Split Chinese content into natural segments based on punctuation.
- *
- * Strategy:
- * 1. Split by sentence-ending delimiters (。！？) to create sentence boundaries
- * 2. Keep delimiters attached to preceding text
- * 3. Handle paragraph breaks (\n\n) as visual separators but preserve them
+ * Split text by a delimiter regex, keeping the delimiter attached to the
+ * preceding text segment.
  */
-function splitIntoNaturalSegments(content: string): string[] {
-  // Pattern to split on sentence-ending punctuation while keeping it
-  const sentencePattern = /([。！？]+)/g;
-  
-  const parts = content.split(sentencePattern);
+function splitByDelimiters(text: string, delimiterRegex: RegExp): string[] {
+  // Split with capturing group to keep delimiters
+  const parts = text.split(delimiterRegex);
   const segments: string[] = [];
-  
+
   for (let i = 0; i < parts.length; i += 2) {
     const textPart = parts[i] || '';
-    const delimiters = parts[i + 1] || '';
-    const fullSegment = textPart + delimiters;
-    
-    if (fullSegment.length > 0) {
-      segments.push(fullSegment);
-    }
+    const delimiter = parts[i + 1] || '';
+    segments.push(textPart + delimiter);
   }
-  
-  // Handle any trailing content without delimiters
-  if (parts.length % 2 === 1) {
+
+  // Handle trailing text without delimiter
+  if (parts.length % 2 === 1 && parts[parts.length - 1]) {
     const last = parts[parts.length - 1];
-    if (last && last.length > 0 && !segments.includes(last)) {
+    if (last && !segments.includes(last)) {
       segments.push(last);
     }
   }
-  
+
   return segments.filter(s => s.length > 0);
 }
 
 /**
- * Strip punctuation and normalize whitespace in a pinyin string.
- * This prepares pinyin for matching against Chinese characters.
+ * Normalize spaces around punctuation in pinyin string so that
+ * splitting by delimiters produces clean segments.
+ *
+ * The server may return English punctuation (,.!?;:) instead of
+ * Chinese punctuation（，。！？；：）, so we normalize first.
+ * Also handles Chinese quotes and other punctuation.
  */
-function stripPinyinNoise(pinyin: string): string {
+function normalizePinyinSpacing(pinyin: string): string {
   return pinyin
-    .replace(PINYIN_NOISE_PATTERN, ' ')
+    // Convert English punctuation to Chinese equivalents
+    .replace(/,/g, '，')
+    .replace(/\./g, '。')
+    .replace(/!/g, '！')
+    .replace(/\?/g, '？')
+    .replace(/;/g, '；')
+    .replace(/:/g, '：')
+    // Ensure spaces around delimiters
+    .replace(/\s*([。，！？；：、])\s*/g, ' $1 ')
+    // Collapse multiple spaces
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Remove trailing Chinese punctuation from a pinyin segment.
+ */
+function stripTrailingPunctuation(text: string): string {
+  return text.replace(/[。，！？；：、]\s*$/g, '').trim();
 }
 
 /**
@@ -277,4 +283,58 @@ function normalizeSegments(segments: SegmentedWord[]): SegmentedWord[] {
 
 function isWhitespaceOnly(text: string): boolean {
   return /^\s+$/.test(text);
+}
+
+/**
+ * Normalize content punctuation by converting English punctuation
+ * to Chinese equivalents so that splitting by delimiters works consistently.
+ */
+function normalizeContentPunctuation(content: string): string {
+  return content
+    .replace(/\?/g, '？')
+    .replace(/!/g, '！')
+    .replace(/,/g, '，')
+    .replace(/\./g, '。')
+    .replace(/;/g, '；')
+    .replace(/:/g, '：');
+}
+
+// ==================== Alignment Validation ====================
+
+/**
+ * Check if pinyin can be structurally aligned with content.
+ *
+ * Validates that both content and pinyin split into the same number of
+ * sentence segments when divided by sentence-ending punctuation (。！？).
+ * This ensures a basic structural match before attempting per-character alignment.
+ */
+export function canAlignPinyin(content: string, pinyin: string): boolean {
+  if (!content || !pinyin) {
+    return false;
+  }
+
+  // Normalize content punctuation
+  const normalizedContent = normalizeContentPunctuation(content);
+
+  // Split both by sentence delimiters
+  const contentSegments = splitByDelimiters(normalizedContent, SENTENCE_END_DELIMITERS);
+  const normalizedPinyin = normalizePinyinSpacing(pinyin);
+  const pinyinSegments = splitByDelimiters(normalizedPinyin, SENTENCE_END_DELIMITERS);
+
+  // Must have the same number of segments for a basic structural match
+  return contentSegments.length === pinyinSegments.length && contentSegments.length > 0;
+}
+
+// ==================== Backward Compatibility ====================
+
+/**
+ * Legacy interface for backward compatibility.
+ * Returns the old format without per-character matches.
+ */
+export function alignPinyinWithContentLegacy(
+  content: string,
+  pinyin: string
+): Array<{ chinese: string; pinyin: string }> {
+  const aligned = alignPinyinWithContent(content, pinyin);
+  return aligned.map(a => ({ chinese: a.chinese, pinyin: a.pinyin }));
 }

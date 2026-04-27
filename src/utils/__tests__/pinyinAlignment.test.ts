@@ -1,5 +1,38 @@
-import { alignPinyinWithContent, groupSegmentsBySentences } from '../pinyinAlignment';
+import { alignPinyinWithContent, groupSegmentsBySentences, canAlignPinyin } from '../pinyinAlignment';
 import type { SegmentedWord } from '../../types';
+
+describe('canAlignPinyin', () => {
+  it('should return true when content and pinyin have matching sentence count', () => {
+    const content = '你好，世界。今天天气很好！';
+    const pinyin = 'nǐ hǎo ， shì jiè 。 jīn tiān tiān qì hěn hǎo ！';
+
+    expect(canAlignPinyin(content, pinyin)).toBe(true);
+  });
+
+  it('should return false when sentence counts mismatch', () => {
+    const content = '你好。世界。';
+    const pinyin = 'nǐ hǎo 。';
+
+    expect(canAlignPinyin(content, pinyin)).toBe(false);
+  });
+
+  it('should return false when pinyin is missing', () => {
+    const content = '你好。';
+    expect(canAlignPinyin(content, '')).toBe(false);
+  });
+
+  it('should return false when content is missing', () => {
+    const pinyin = 'nǐ hǎo 。';
+    expect(canAlignPinyin('', pinyin)).toBe(false);
+  });
+
+  it('should handle mixed English/Chinese punctuation', () => {
+    const content = '塞翁失马，焉知非福?';
+    const pinyin = 'Sàiwēng shī mǎ, yān zhī fēi fú?';
+
+    expect(canAlignPinyin(content, pinyin)).toBe(true);
+  });
+});
 
 describe('alignPinyinWithContent', () => {
   it('should align simple sentence with period', () => {
@@ -240,6 +273,80 @@ describe('groupSegmentsBySentences with server article data', () => {
       const chars = blockWithMatches.matches.map(m => m.char).join('');
       expect(chars).toContain('我');
       expect(chars).toContain('爱');
+    }
+  });
+
+  it('should handle Saiweng article with mixed punctuation and quotes', () => {
+    const articleData = {
+      article: '塞翁失马，焉知非福? 这个故事很有意思。有一个老人，他养了一匹马。有一天，这匹马跑丢了。邻居都说："真不走运啊！"老人却说："这不一定是坏事。"\n\n过了几个月，那匹马自己回来了，还带回来一匹好马。邻居们都来祝贺老人。老人又说："这不一定是好事。"\n\n老人的儿子很喜欢骑这匹新马。有一天，他骑马的时候，从马上摔了下来，腿受了伤。邻居们都来安慰老人。老人说："这不一定是坏事。"\n\n没过多久，国家打仗了，很多年轻人都去当兵。老人的儿子因为腿受伤了，就不用去当兵了。很多人都在战争中死了，但是老人的儿子活了下来。所以，"塞翁失马，焉知非福"这个成语告诉我们，一件事情的坏和好，有时候是会改变的。不要太容易觉得一件事是好是坏。',
+      pinyin: 'Sàiwēng shī mǎ, yān zhī fēi fú? Zhège gùshì hěn yǒu yìsi. Yǒu yīgè lǎorén, tā yǎngle yī pǐ mǎ. Yǒu yī tiān, zhè pǐ mǎ pǎo diūle. Línjū dōu shuō: "Zhēn bù zǒuyùn a!" Lǎorén què shuō: "Zhè bù yīdìng shì huàishì."\n\nGuòle jǐ gè yuè, nà pǐ mǎ zìjǐ huíláile, hái dài huílái yī pǐ hǎo mǎ. Línjūmen dōu lái zhùhè lǎorén. Lǎorén yòu shuō: "Zhè bù yīdìng shì hǎoshì."\n\nLǎorén de érzi hěn xǐhuān qí zhè pǐ xīn mǎ. Yǒu yī tiān, tā qí mǎ de shíhòu, cóng mǎ shàng shuāi xiàlái, tuǐ shòule shāng. Línjūmen dōu lái ānwèi lǎorén. Lǎorén shuō: "Zhè bù yīdìng shì huàishì."\n\nMéi guò duōjiǔ, guójiā dǎzhàngle, hěn duō niánqīngrén dōu qù dāngbīng. Lǎorén de érzi yīnwèi tuǐ shòushāngle, jiù bù yòng qù dāngbīngle. Hěn duō rén dōu zài zhànzhēng zhōng sǐle, dànshì lǎorén de érzi huóle xiàlái. Suǒyǐ, "Sàiwēng shī mǎ, yān zhī fēi fú" zhège chéngyǔ gàosù wǒmen, yī jiàn shìqíng de huài hé hǎo, yǒushíhòu shì huì gǎibiàn de. Bùyào tài róngyì juédé yī jiàn shì shì hǎo shì huài.',
+      segments: [
+        '塞翁失马', '，',   '焉知非福', '?',    '这个',   '故事',
+        '很',       '有',   '意思',     '。有', '一个',   '老人',
+        '，',       '他',   '养',       '了',   '一',     '匹',
+        '马',       '。有', '一天',     '，',   '这',     '匹',
+        '马',       '跑',   '丢',       '了',   '。邻居', '都',
+        '说',       '：',   '"',        '真',   '不',     '走运',
+        '啊',       '！',   '"',        '老人', '却',     '说',
+        '：',       '"',    '这',       '不',   '一定',   '是',
+        '坏事',     '。',   '"',        '\n\n', '过',     '了',
+        '几个',     '月',   '，',       '那',   '匹',     '马',
+        '自己',     '回来', '了',       '，',   '还',     '带回来',
+        '一',       '匹',   '好',       '马',   '。邻居', '们',
+        '都',       '来',   '祝贺',     '老人', '。老人', '又',
+        '说',       '：',   '"',        '这',   '不',     '一定',
+        '是',       '好事', '。',       '"',    '\n\n',   '老人',
+        '的',       '儿子', '很',       '喜欢', '骑',     '这',
+        '匹',       '新',   '马',       '。有',
+        '一天',     '，',   '他',       '骑马', '的',     '时候',
+        '，',       '从',   '马上',     '摔',   '了',     '下来',
+        '，',       '腿',   '受了',     '伤',   '。',     '邻居',
+        '们',       '都',   '来',       '安慰', '老人',   '。',
+        '老人',     '说',   '：',       '"',    '这',     '不',
+        '一定',     '是',   '坏事',     '。',   '"',      '\n\n',
+        '没',       '过',   '多久',     '，',   '国家',   '打仗',
+        '了',       '，',   '很多',     '年轻', '人',     '都',
+        '去',       '当兵', '。',       '老人', '的',     '儿子',
+        '因为',     '腿',   '受伤',     '了',   '，',     '就',
+        '不',       '用',   '去',       '当兵', '了',     '。',
+        '很多',     '人',   '都',       '在',   '战争',   '中',
+        '死',       '了',   '，',       '但是', '老人',   '的',
+        '儿子',     '活',   '了',       '下来', '。',     '所以',
+        '，',       '"',    '塞翁失马', '，',   '焉知非福', '"',
+        '这个',     '成语', '告诉',     '我们', '，',     '一件',
+        '事情',     '的',   '坏',       '和',   '好',     '，',
+        '有时候',   '是',   '会',       '改变', '的',     '。',
+        '不要',     '太',   '容易',     '觉得', '一件',   '事',
+        '是',       '好',   '是',       '坏',   '。'
+      ]
+    };
+
+    const aligned = alignPinyinWithContent(articleData.article, articleData.pinyin);
+    const segments = articleData.segments.map((text, index) => ({ id: String(index), text, type: 'chinese' as const }));
+    const blocks = groupSegmentsBySentences(segments, aligned);
+
+    // Should have multiple blocks
+    expect(blocks.length).toBeGreaterThan(1);
+
+    // Most blocks should have pinyin (either as matches or as string)
+    const blocksWithPinyin = blocks.filter(b => b.pinyin && b.pinyin.length > 0);
+    expect(blocksWithPinyin.length).toBeGreaterThan(blocks.length * 0.8);
+
+    // At least some blocks should have per-character matches
+    const blocksWithMatches = blocks.filter(b => b.matches && b.matches.length > 0);
+    expect(blocksWithMatches.length).toBeGreaterThan(0);
+
+    // Verify total segments are preserved
+    const totalSegmentChars = segments.reduce((sum, s) => sum + s.text.length, 0);
+    const totalBlockChars = blocks.reduce((sum, b) => sum + b.segments.reduce((s, seg) => s + seg.text.length, 0), 0);
+    expect(totalBlockChars).toBe(totalSegmentChars);
+
+    // No sentence should start with sentence-ending punctuation
+    for (let i = 0; i < blocks.length; i++) {
+      const firstNonWhitespace = blocks[i].segments.find(s => !/^\s+$/.test(s.text));
+      if (firstNonWhitespace) {
+        expect(firstNonWhitespace.text.charAt(0)).not.toMatch(/[。！？，；：、]/);
+      }
     }
   });
 });

@@ -398,6 +398,13 @@ export default function SettingsScreen() {
               <Text variant="bodyMedium" style={styles.featureItem}>• HSK level tracking and vocabulary management</Text>
               <Text variant="bodyMedium" style={styles.featureItem}>• Reading progress and statistics</Text>
               <Text variant="bodyMedium" style={styles.featureItem}>• Cloud lookup and sync for subscribed user</Text>
+
+              <Divider style={styles.aboutDivider} />
+
+              <Text variant="titleSmall" style={styles.featuresTitle}>Data Sources:</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Dictionary: CC-CEDICT (offline)</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Examples: Tatoeba.org (CC BY 2.0 FR)</Text>
+              <Text variant="bodyMedium" style={styles.featureItem}>• Cloud lookup: Powered by AI</Text>
               
               <Divider style={styles.aboutDivider} />
               

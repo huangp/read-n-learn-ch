@@ -9,6 +9,7 @@ import DebugService from '../services/debug';
 import CharacterRecognitionService from '../services/characterRecognition';
 import SegmentedText from '../components/SegmentedText';
 import PinyinSegmentedText from '../components/PinyinSegmentedText';
+import { canAlignPinyin } from '../utils/pinyinAlignment';
 import WordLookupModal from '../components/WordLookupModal';
 import CompleteReadingButton from '../components/CompleteReadingButton';
 import ReadingStatsPanel from '../components/ReadingStatsPanel';
@@ -54,6 +55,9 @@ export default function ArticleDetailScreen() {
   // Translation display toggle
   const [showTranslation, setShowTranslation] = useState(false);
 
+  // Pinyin alignment capability
+  const [canShowPinyin, setCanShowPinyin] = useState(false);
+
   // Font settings state
   const [fontSize, setFontSize] = useState(18);
   const [lineHeight, setLineHeight] = useState(32);
@@ -92,7 +96,13 @@ export default function ArticleDetailScreen() {
         });
         
         setArticle(data);
-        
+
+        // Check if pinyin alignment is structurally possible
+        const pinyinAlignable = data.serverPinyin
+          ? canAlignPinyin(data.content, data.serverPinyin)
+          : false;
+        setCanShowPinyin(pinyinAlignable);
+
         // Initialize character recognition session
         const sessionId = await CharacterRecognitionService.startReadingSession(articleId);
         setCurrentSessionId(sessionId);
@@ -330,7 +340,7 @@ export default function ArticleDetailScreen() {
           {article.source && (
             <Text variant="bodySmall" style={styles.source}>Source: {article.source}</Text>
           )}
-          {article.serverPinyin && (
+          {canShowPinyin && (
             <View style={styles.pinyinToggleRow}>
               <Text variant="bodySmall" style={styles.pinyinToggleLabel}>
                 Pinyin
@@ -389,7 +399,7 @@ export default function ArticleDetailScreen() {
       >
         <View style={styles.contentWrapper}>
           {article?.segments && article.segments.length > 0 ? (
-            showPinyin && article.serverPinyin ? (
+            showPinyin && canShowPinyin ? (
               <PinyinSegmentedText
                 segments={article.segments}
                 content={article.content}
