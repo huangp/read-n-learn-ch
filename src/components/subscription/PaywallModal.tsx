@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
 import { 
   Modal, 
   Portal, 
@@ -50,6 +50,7 @@ export function PaywallModal({
       >
         <View style={styles.container}>
           <View style={styles.header}>
+            <Text variant="titleMedium" style={styles.serviceTitle}>Read & Learn Chinese Premium</Text>
             <Text variant="titleLarge" style={styles.title}>Upgrade to Premium</Text>
             <IconButton
               icon="close"
@@ -94,6 +95,19 @@ export function PaywallModal({
               <Text variant="bodySmall" style={styles.terms}>
                 Subscriptions auto-renew. Cancel anytime in your device settings.
               </Text>
+              <View style={styles.legalLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+                  <Text variant="bodySmall" style={[styles.termsLink, { color: theme.colors.primary }]}>
+                    Terms of Use (EULA)
+                  </Text>
+                </TouchableOpacity>
+                <Text variant="bodySmall" style={styles.termsSeparator}> • </Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://huangp.github.io/read-n-learn-ch/PRIVACY_POLICY.html')}>
+                  <Text variant="bodySmall" style={[styles.termsLink, { color: theme.colors.primary }]}>
+                    Privacy Policy
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -160,5 +174,21 @@ const styles = StyleSheet.create({
     color: '#adb5bd',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  serviceTitle: {
+    fontWeight: '700',
+    color: '#6c757d',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  termsLink: {
+    textDecorationLine: 'underline',
+  },
+  termsSeparator: {
+    color: '#adb5bd',
   },
 });

@@ -223,6 +223,11 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     {
+      title: hasCloudAccess ? 'Manage Subscription' : 'Upgrade to Premium',
+      description: hasCloudAccess ? 'View and manage your subscription' : 'Unlock cloud features and AI articles',
+      onPress: () => navigation.navigate('Subscription'),
+    },
+    {
       title: 'About',
       description: 'Read & Learn Chinese v1.0.0',
       onPress: () => setAboutVisible(true),

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Linking, TouchableOpacity } from 'react-native';
 import { 
   Text, 
   Button, 
@@ -153,7 +153,8 @@ export default function SubscriptionScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text variant="headlineMedium" style={styles.title}>Upgrade to Pro</Text>
+          <Text variant="titleLarge" style={styles.serviceTitle}>Read & Learn Chinese Premium</Text>
+          <Text variant="headlineMedium" style={styles.title}>Upgrade to Premium</Text>
           <Text variant="bodyMedium" style={styles.subtitle}>
             Unlock cloud features and enhance your learning experience
           </Text>
@@ -209,9 +210,21 @@ export default function SubscriptionScreen() {
 
             <View style={styles.termsContainer}>
               <Text variant="bodySmall" style={styles.terms}>
-                By subscribing, you agree to our Terms of Service and Privacy Policy.
                 Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current period.
               </Text>
+              <View style={styles.legalLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+                  <Text variant="bodySmall" style={[styles.termsLink, { color: theme.colors.primary }]}>
+                    Terms of Use (EULA)
+                  </Text>
+                </TouchableOpacity>
+                <Text variant="bodySmall" style={styles.termsSeparator}> • </Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://huangp.github.io/read-n-learn-ch/PRIVACY_POLICY.html')}>
+                  <Text variant="bodySmall" style={[styles.termsLink, { color: theme.colors.primary }]}>
+                    Privacy Policy
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </>
         )}
@@ -335,5 +348,22 @@ const styles = StyleSheet.create({
     color: '#adb5bd',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  serviceTitle: {
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#6c757d',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  termsLink: {
+    textDecorationLine: 'underline',
+  },
+  termsSeparator: {
+    color: '#adb5bd',
   },
 });
